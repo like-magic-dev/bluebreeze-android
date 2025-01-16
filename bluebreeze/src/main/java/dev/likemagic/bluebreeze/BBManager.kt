@@ -19,8 +19,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class BBManager(activity: Activity) : BroadcastReceiver() {
+    // region Permissions
+
     private val _authorizationStatus = MutableStateFlow(BBAuthorization.unknown)
-    private val _state = MutableStateFlow(BBState.unknown)
+    val authorizationStatus: StateFlow<BBAuthorization> get() = _authorizationStatus
 
     private val authorizationPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         arrayOf(
@@ -36,12 +38,7 @@ class BBManager(activity: Activity) : BroadcastReceiver() {
 
     init {
         _authorizationStatus.value = authorizationCheck(activity)
-        _state.value = stateCheck(activity)
     }
-
-    // region Permissions
-
-    val authorizationStatus: StateFlow<BBAuthorization> get() = _authorizationStatus
 
     private fun authorizationCheck(activity: Activity): BBAuthorization {
         // Check if all permissions are already granted
@@ -153,7 +150,12 @@ class BBManager(activity: Activity) : BroadcastReceiver() {
 
     // region State
 
+    private val _state = MutableStateFlow(BBState.unknown)
     val state: StateFlow<BBState> get() = _state
+
+    init {
+        _state.value = stateCheck(activity)
+    }
 
     private fun stateCheck(context: Context): BBState {
         // Setup a broadcast intent filter
