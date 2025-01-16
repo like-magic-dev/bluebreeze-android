@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" tools:targetApi="S" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" tools:targetApi="S" />
 
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true"/>
+
+    <application>
+        <activity
+            android:name=".BBManager$BBPermissionRequestActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="true"
+            />
+    </application>
 </manifest>

@@ -33,7 +33,7 @@ android {
 }
 
 dependencies {
-
+    implementation(libs.jetbrains.kotlinx.coroutines.core)
     implementation(libs.appcompat.v7)
     testImplementation(libs.junit)
     androidTestImplementation(libs.runner)
