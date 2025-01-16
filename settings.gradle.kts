@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "bluebreeze"
 include(":bluebreeze")
+include(":example")
