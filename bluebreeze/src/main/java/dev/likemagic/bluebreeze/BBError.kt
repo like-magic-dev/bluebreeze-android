@@ -1,5 +1,11 @@
+import java.util.Locale
 
-abstract class BBError : Throwable() {
-    override val message: String
-        get() = "Unspecified error"
+class BBError(
+    message: String = "Unspecified error"
+) : Throwable(message = message) {
+    companion object {
+        fun scan(timeToWait: Float): BBError = BBError(
+            message = String.format(Locale.US, "Scanned too often, please wait %f seconds before scanning", timeToWait)
+        )
+    }
 }

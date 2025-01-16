@@ -1,8 +1,14 @@
 package dev.likemagic.bluebreeze
 
+import BBUUID
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,11 +18,14 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelUuid
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class BBManager(activity: Activity) : BroadcastReceiver() {
     // region Permissions
@@ -170,12 +179,134 @@ class BBManager(activity: Activity) : BroadcastReceiver() {
         }
 
         // Retrieve the current state
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        val bluetoothAdapter = bluetoothManager.adapter
-        return if (bluetoothAdapter.isEnabled)
-            BBState.poweredOn
-        else
-            BBState.poweredOff
+        return when (context.bluetoothAdapter?.isEnabled) {
+            true -> BBState.poweredOn
+            else -> BBState.poweredOff
+        }
+    }
+
+    // endregion
+
+    // region Devices
+
+    private val _devices = MutableStateFlow<Map<String, BBDevice>>(mapOf())
+    val devices: StateFlow<Map<String, BBDevice>> get() = _devices
+
+    // end region
+
+    // region Scanning
+
+    private val _scanningEnabled = MutableStateFlow(false)
+    val scanningEnabled: StateFlow<Boolean> get() = _scanningEnabled
+
+    private val scanningTimes: MutableList<Long> = ArrayList()
+
+    fun scanningStart(context: Context, serviceUUIDs: List<BBUUID> = emptyList()) {
+        if (scanningEnabled.value) {
+            return
+        }
+
+        /// !!! LOW POWER does not work on some devices, DO NOT CHANGE !!!
+        val bluetoothScanMode = ScanSettings.SCAN_MODE_LOW_LATENCY
+
+        val scanSettingsBuilder = ScanSettings.Builder()
+        scanSettingsBuilder.setScanMode(bluetoothScanMode)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            scanSettingsBuilder.setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+        }
+        val scanSettings = scanSettingsBuilder.build()
+
+        val scanFilters = serviceUUIDs.map {
+            ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid.fromString(it.toString()))
+                .build()
+        }
+
+        // When scanning more than 5 times in 30 seconds, the system will block our app from scanning.
+        // We need to catch this condition and prevent calling *startScan* below.
+        val currentTime = System.currentTimeMillis()
+        if (scanningTimes.size < 5) {
+            scanningTimes.add(currentTime)
+        } else {
+            val deltaTime = (currentTime - scanningTimes[0])
+
+            // We throw an exception so that the app code can restart scanning after the specified time
+            if (deltaTime < 30000) {
+                val timeToWait = 30f - (deltaTime * 0.001f)
+                throw BBError.scan(timeToWait)
+            }
+
+            scanningTimes.removeAt(0)
+            scanningTimes.add(currentTime)
+        }
+
+        context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanningCallback)
+        _scanningEnabled.value = true
+    }
+
+    fun scanningStop(context: Context) {
+        if (!scanningEnabled.value) {
+            return
+        }
+
+        context.bluetoothLeScanner?.stopScan(scanningCallback)
+        _scanningEnabled.value = false
+    }
+
+    private val scanningCallback: ScanCallback = object : ScanCallback() {
+        private fun parseAdvertisedData(advertisedData: ByteArray): Map<UByte, ByteArray> {
+            val result: MutableMap<UByte, ByteArray> = mutableMapOf()
+
+            val buffer = advertisedData.byteBuffer()
+            while (buffer.remaining() > 2) {
+                val length = buffer.get().toInt()
+                if (length == 0) {
+                    break
+                }
+
+                if (length > buffer.remaining()) {
+                    break
+                }
+
+                val type = buffer.get().toUByte()
+
+                val value = ByteArray(length - 1)
+                for (index in 0 until length - 1) {
+                    value[index] = buffer.get()
+                }
+
+                result[type] = value
+            }
+
+            return result
+        }
+
+        private fun processScanResult(result: ScanResult) {
+            val advertisedData = result.scanRecord?.bytes?.let {
+                parseAdvertisedData(it)
+            } ?: emptyMap()
+            
+            val devices = _devices.value.toMutableMap()
+            devices[result.device.address] = BBDevice(result.device, advertisedData)
+            _devices.value = devices
+        }
+
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            super.onScanResult(callbackType, result)
+            processScanResult(result)
+        }
+
+        override fun onBatchScanResults(results: List<ScanResult>) {
+            super.onBatchScanResults(results)
+            results.forEach {
+                processScanResult(it)
+            }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            super.onScanFailed(errorCode)
+            _scanningEnabled.value = false
+        }
     }
 
     // endregion
@@ -216,3 +347,18 @@ class BBManager(activity: Activity) : BroadcastReceiver() {
 
 val Context.sharedPreferences: SharedPreferences
     get() = getSharedPreferences("BlueBreeze", Context.MODE_PRIVATE)
+
+val Context.bluetoothAdapter: BluetoothAdapter?
+    get() {
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        return bluetoothManager?.adapter
+    }
+
+val Context.bluetoothLeScanner: BluetoothLeScanner?
+    get() = bluetoothAdapter?.bluetoothLeScanner
+
+fun ByteArray.byteBuffer(): ByteBuffer {
+    val byteBuffer = ByteBuffer.wrap(this)
+    byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
+    return byteBuffer
+}
