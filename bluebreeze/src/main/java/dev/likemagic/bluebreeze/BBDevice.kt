@@ -22,7 +22,7 @@ import kotlin.coroutines.suspendCoroutine
 class BBDevice(
     val context: Context,
     val device: BluetoothDevice,
-): BluetoothGattCallback() {
+): BluetoothGattCallback(), BBOperationQueue {
     var gatt: BluetoothGatt? = null
 
     // region Dynamic properties
@@ -96,7 +96,7 @@ class BBDevice(
     private val operationQueue = LinkedBlockingQueue<BBOperation<*>>()
     private var operationCurrent: BBOperation<*>? = null
 
-    suspend fun <T> operationEnqueue(operation: BBOperation<T>): T =
+    override suspend fun <T> operationEnqueue(operation: BBOperation<T>): T =
         suspendCoroutine { continuation ->
             operation.continuation = continuation
 
@@ -128,6 +128,12 @@ class BBDevice(
     ) {
         gatt ?: return
 
+        services.value.forEach { service ->
+            service.characteristics.forEach { characteristic ->
+                characteristic.onConnectionStateChange(gatt, status, newState)
+            }
+        }
+
         operationCurrent?.onConnectionStateChange(gatt, status, newState)
 
         when (newState) {
@@ -154,7 +160,10 @@ class BBDevice(
             BBService(
                 uuid = it.uuid,
                 characteristics = it.characteristics.map {
-                    BBCharacteristic(it)
+                    BBCharacteristic(
+                        characteristic = it,
+                        operationQueue = this,
+                    )
                 }
             )
         }
@@ -195,6 +204,8 @@ class BBDevice(
         gatt ?: return
         characteristic ?: return
 
+        characteristic(characteristic.uuid)?.onCharacteristicRead(gatt, characteristic, status)
+
         operationCurrent?.onCharacteristicRead(gatt, characteristic, status)
         operationCheck()
     }
@@ -206,6 +217,8 @@ class BBDevice(
         value: ByteArray,
         status: Int
     ) {
+        characteristic(characteristic.uuid)?.onCharacteristicRead(gatt, characteristic, value, status)
+
         operationCurrent?.onCharacteristicRead(gatt, characteristic, value, status)
         operationCheck()
     }
@@ -217,6 +230,8 @@ class BBDevice(
     ) {
         gatt ?: return
         characteristic ?: return
+
+        characteristic(characteristic.uuid)?.onCharacteristicWrite(gatt, characteristic, status)
 
         operationCurrent?.onCharacteristicWrite(gatt, characteristic, status)
         operationCheck()
@@ -230,7 +245,7 @@ class BBDevice(
         gatt ?: return
         characteristic ?: return
 
-//            listener?.bleControllerDeviceDidUpdateValue(gatt.device, characteristic, characteristic.value)
+        characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic)
 
         operationCurrent?.onCharacteristicChanged(gatt, characteristic)
         operationCheck()
@@ -242,11 +257,23 @@ class BBDevice(
         characteristic: BluetoothGattCharacteristic,
         value: ByteArray
     ) {
-//            listener?.bleControllerDeviceDidUpdateValue(gatt.device, characteristic, value)
+        characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic, value)
 
         operationCurrent?.onCharacteristicChanged(gatt, characteristic, value)
         operationCheck()
     }
 
     // endregion
+}
+
+fun BBDevice.characteristic(uuid: BBUUID): BBCharacteristic? {
+    services.value.forEach { service ->
+        service.characteristics.forEach { characteristic ->
+            if (characteristic.uuid == uuid) {
+                return characteristic
+            }
+        }
+    }
+
+    return null
 }

@@ -2,6 +2,7 @@ package dev.likemagic.bluebreeze.example
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,11 +26,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import dev.likemagic.bluebreeze.BBCharacteristic
 import dev.likemagic.bluebreeze.BBDevice
 import dev.likemagic.bluebreeze.BBDeviceConnectionStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.coroutines.suspendCoroutine
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,15 +108,9 @@ fun DeviceView(
                             .fillMaxWidth()
                     ) {
                         service.characteristics.forEach { characteristic ->
-                            Text(
-                                characteristic.uuid.toString(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        horizontal = 16.dp,
-                                        vertical = 4.dp,
-                                    )
+                            CharacteristicView(
+                                navController = navController,
+                                characteristic = characteristic,
                             )
                         }
                     }
@@ -122,3 +119,47 @@ fun DeviceView(
         }
     }
 }
+
+@Composable
+fun CharacteristicView(
+    navController: NavController,
+    characteristic: BBCharacteristic,
+) {
+    val context = navController.context
+
+    val data = characteristic.data.collectAsStateWithLifecycle()
+
+    Column {
+        Text(
+            characteristic.uuid.toString(),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 4.dp,
+                )
+        )
+        Text(
+            data.value.hexString,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 4.dp,
+                )
+        )
+        TextButton({
+            CoroutineScope(Dispatchers.IO).launch {
+                characteristic.read()
+            }
+        }) {
+            Text("Read")
+        }
+    }
+}
+
+val ByteArray.hexString: String
+    get() = joinToString("") { "%02x".format(it) }
+
