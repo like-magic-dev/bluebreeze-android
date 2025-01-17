@@ -28,7 +28,9 @@ import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class BBManager(activity: Activity) : BroadcastReceiver() {
+class BBManager(
+    private val activity: Activity,
+) : BroadcastReceiver() {
     // region Permissions
 
     private val _authorizationStatus = MutableStateFlow(BBAuthorization.unknown)
@@ -284,7 +286,7 @@ class BBManager(activity: Activity) : BroadcastReceiver() {
 
         private fun processScanResult(result: ScanResult) {
             val devices = _devices.value.toMutableMap()
-            devices[result.device.address] = devices[result.device.address] ?: BBDevice(result.device)
+            devices[result.device.address] = devices[result.device.address] ?: BBDevice(activity, result.device)
 
             devices[result.device.address]?.rssi = result.rssi
             devices[result.device.address]?.advertiseData = result.scanRecord?.bytes?.let {

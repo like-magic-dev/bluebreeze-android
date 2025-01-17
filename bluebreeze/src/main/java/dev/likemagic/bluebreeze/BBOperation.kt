@@ -5,33 +5,38 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
-import kotlinx.coroutines.channels.SendChannel
+import android.content.Context
 import java.util.UUID
+import kotlin.coroutines.Continuation
 
 abstract class BBOperation<T> : BluetoothGattCallback() {
     // region Execution
 
-    abstract fun execute(device: BluetoothDevice)
+    abstract fun execute(
+        context: Context,
+        device: BluetoothDevice,
+        gatt: BluetoothGatt?,
+    )
 
     // endregion
 
     // region Completion
 
-    var sendChannel: SendChannel<Result<T>>? = null
+    var continuation: Continuation<T>? = null
     var isComplete = false
 
     fun setSuccess(value: T) {
-        sendChannel?.trySend(Result.success(value))
+        continuation?.resumeWith(Result.success(value))
         isComplete = true
     }
 
     fun setError(error: Throwable) {
-        sendChannel?.trySend(Result.failure(error))
+        continuation?.resumeWith(Result.failure(error))
         isComplete = true
     }
 
     fun cancel() {
-        sendChannel?.trySend(Result.failure(BBError.operationCancelled()))
+        continuation?.resumeWith(Result.failure(BBError.operationCancelled()))
         isComplete = true
     }
 

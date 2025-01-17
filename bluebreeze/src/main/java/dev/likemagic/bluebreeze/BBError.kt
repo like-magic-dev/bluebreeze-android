@@ -5,11 +5,19 @@ class BBError(
 ) : Throwable(message = message) {
     companion object {
         fun scan(timeToWait: Float): BBError = BBError(
-            message = String.format(Locale.US, "Scanned too often, please wait %f seconds before scanning", timeToWait)
+            message = "Scanned too often, please wait $timeToWait seconds before scanning"
         )
 
         fun operationCancelled(): BBError = BBError(
-            message = String.format(Locale.US, "Operation cancelled")
+            message = "Operation cancelled"
+        )
+
+        fun gattDisconnected(): BBError = BBError(
+            message = "Gatt disconnected"
+        )
+
+        fun gattError(code: Int): BBError = BBError(
+            message = "Gatt error: $code"
         )
     }
 }

@@ -1,21 +1,26 @@
 package dev.likemagic.bluebreeze
 
+import BBUUID
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
+import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
+import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
+import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
+import dev.likemagic.bluebreeze.operations.BBOperationConnect
+import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.callbackFlow
 import java.nio.charset.Charset
 import java.util.concurrent.LinkedBlockingQueue
+import kotlin.coroutines.suspendCoroutine
 
 class BBDevice(
+    val context: Context,
     val device: BluetoothDevice,
 ): BluetoothGattCallback() {
     var gatt: BluetoothGatt? = null
@@ -37,10 +42,19 @@ class BBDevice(
 
     // endregion
 
+    // region Services
+
+    private val _services = MutableStateFlow<List<BBUUID>>(emptyList())
+    val services: StateFlow<List<BBUUID>> get() = _services
+
+    // endregion
+
     // region Connection status
 
     private val _connectionStatus = MutableStateFlow(BBDeviceConnectionStatus.disconnected)
     val connectionStatus: StateFlow<BBDeviceConnectionStatus> get() = _connectionStatus
+
+    // endregion
 
     // region MTU
 
@@ -49,21 +63,46 @@ class BBDevice(
 
     // endregion
 
+    // region Operations
+
+    suspend fun connect() {
+        return operationEnqueue(
+            BBOperationConnect(this)
+        )
+    }
+
+    suspend fun disconnect() {
+        return operationEnqueue(
+            BBOperationDisconnect()
+        )
+    }
+
+    suspend fun discoverServices() {
+        return operationEnqueue(
+            BBOperationDiscoverServices()
+        )
+    }
+
+    suspend fun requestMTU(mtu: Int): Int {
+        return operationEnqueue(
+            BBOperationRequestMtu(mtu)
+        )
+    }
+
+    // endregion
+
     // region Operation queue
 
     private val operationQueue = LinkedBlockingQueue<BBOperation<*>>()
     private var operationCurrent: BBOperation<*>? = null
 
-    fun <T> operationEnqueue(operation: BBOperation<T>): Flow<Result<T>> {
-        return callbackFlow {
-            operation.sendChannel = channel
+    suspend fun <T> operationEnqueue(operation: BBOperation<T>): T =
+        suspendCoroutine { continuation ->
+            operation.continuation = continuation
 
             operationQueue.add(operation)
             operationCheck()
-
-            awaitClose { channel.close() }
         }
-    }
 
     private fun operationCheck() {
         if (operationCurrent?.isComplete == false) {
@@ -71,7 +110,11 @@ class BBDevice(
         }
 
         operationCurrent = operationQueue.poll()
-        operationCurrent?.execute(device)
+        operationCurrent?.execute(
+            context,
+            device,
+            gatt,
+        )
     }
 
     // endregion
@@ -106,6 +149,8 @@ class BBDevice(
         status: Int
     ) {
         gatt ?: return
+
+        _services.value = gatt.services.map { it.uuid }
 
         operationCurrent?.onServicesDiscovered(gatt, status)
         operationCheck()
