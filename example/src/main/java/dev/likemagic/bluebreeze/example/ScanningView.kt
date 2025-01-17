@@ -16,10 +16,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
@@ -39,20 +41,20 @@ fun ScanningView(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("BLE Scanning")
+                    Text(stringResource(R.string.ble_scanning))
                 },
                 actions = {
                     if (scanningEnabled.value) {
-                        Button({
+                        TextButton({
                             manager.scanningStop(context)
                         }) {
-                            Text("Stop scanning")
+                            Text(stringResource(R.string.stop_scanning).uppercase())
                         }
                     } else {
-                        Button({
+                        TextButton({
                             manager.scanningStart(context)
                         }) {
-                            Text("Start scanning")
+                            Text(stringResource(R.string.start_scanning).uppercase())
                         }
                     }
                 },
@@ -77,7 +79,10 @@ fun ScanningView(
                         .padding(
                             horizontal = 16.dp,
                             vertical = 4.dp,
-                        )
+                        ),
+                    onClick = {
+                        print("WTF")
+                    },
                 ) {
                     Row(
                         modifier = Modifier
@@ -92,11 +97,17 @@ fun ScanningView(
                         Column {
                             Text(
                                 device.name ?: device.address,
-                                style = MaterialTheme.typography.headlineSmall
+                                style = MaterialTheme.typography.bodyLarge,
                             )
-                            Text(device.address)
+                            Text(
+                                device.address,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
-                        Text(device.rssi.toString())
+                        Text(
+                            device.rssi.toString(),
+                            style = MaterialTheme.typography.headlineSmall,
+                        )
                     }
                 }
             }
