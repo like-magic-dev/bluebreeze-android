@@ -44,8 +44,8 @@ class BBDevice(
 
     // region Services
 
-    private val _services = MutableStateFlow<List<BBUUID>>(emptyList())
-    val services: StateFlow<List<BBUUID>> get() = _services
+    private val _services = MutableStateFlow<List<BBService>>(emptyList())
+    val services: StateFlow<List<BBService>> get() = _services
 
     // endregion
 
@@ -150,7 +150,14 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        _services.value = gatt.services.map { it.uuid }
+        _services.value = gatt.services.map {
+            BBService(
+                uuid = it.uuid,
+                characteristics = it.characteristics.map {
+                    BBCharacteristic(it)
+                }
+            )
+        }
 
         operationCurrent?.onServicesDiscovered(gatt, status)
         operationCheck()

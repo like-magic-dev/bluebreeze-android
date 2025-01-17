@@ -1,7 +1,9 @@
 package dev.likemagic.bluebreeze.example
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -81,26 +84,39 @@ fun DeviceView(
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.Start
         ) {
-            items(
-                services.value.toList(),
-                key = { service -> service }
-            ) { service ->
-                Card(
+            services.value.forEach { service ->
+                Column(
                     modifier = Modifier
-                        .fillMaxSize()
                         .padding(
                             horizontal = 16.dp,
                             vertical = 4.dp,
-                        ),
+                        )
                 ) {
-                    Text(service.toString())
+                    Text(service.uuid.toString(), style = MaterialTheme.typography.bodySmall)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        service.characteristics.forEach { characteristic ->
+                            Text(
+                                characteristic.uuid.toString(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        horizontal = 16.dp,
+                                        vertical = 4.dp,
+                                    )
+                            )
+                        }
+                    }
                 }
             }
         }
