@@ -1,5 +1,6 @@
 package dev.likemagic.bluebreeze
 
+import BBError
 import BBUUID
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
@@ -282,12 +283,14 @@ class BBManager(activity: Activity) : BroadcastReceiver() {
         }
 
         private fun processScanResult(result: ScanResult) {
-            val advertisedData = result.scanRecord?.bytes?.let {
+            val devices = _devices.value.toMutableMap()
+            devices[result.device.address] = devices[result.device.address] ?: BBDevice(result.device)
+
+            devices[result.device.address]?.rssi = result.rssi
+            devices[result.device.address]?.advertiseData = result.scanRecord?.bytes?.let {
                 parseAdvertisedData(it)
             } ?: emptyMap()
-            
-            val devices = _devices.value.toMutableMap()
-            devices[result.device.address] = BBDevice(result.device, advertisedData)
+
             _devices.value = devices
         }
 

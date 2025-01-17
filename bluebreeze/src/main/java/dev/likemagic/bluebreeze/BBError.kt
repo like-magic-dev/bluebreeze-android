@@ -7,5 +7,9 @@ class BBError(
         fun scan(timeToWait: Float): BBError = BBError(
             message = String.format(Locale.US, "Scanned too often, please wait %f seconds before scanning", timeToWait)
         )
+
+        fun operationCancelled(): BBError = BBError(
+            message = String.format(Locale.US, "Operation cancelled")
+        )
     }
 }
