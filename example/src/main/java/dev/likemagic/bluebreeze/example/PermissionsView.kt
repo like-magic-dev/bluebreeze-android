@@ -14,14 +14,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import dev.likemagic.bluebreeze.BBAuthorization
 import dev.likemagic.bluebreeze.BBManager
 
 @Composable
 fun PermissionsView(
-    context: Context,
+    navController: NavController,
     manager: BBManager,
 ) {
+    val context = navController.context
+
     val authorizationStatus = manager.authorizationStatus.collectAsStateWithLifecycle()
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(
