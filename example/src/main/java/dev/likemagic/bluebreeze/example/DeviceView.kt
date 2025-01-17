@@ -1,6 +1,7 @@
 package dev.likemagic.bluebreeze.example
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -87,14 +88,17 @@ fun DeviceView(
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.Start
         ) {
-            services.value.forEach { service ->
+            items(
+                services.value.toList(),
+                key = { service -> service.uuid }
+            ) { service ->
                 Column(
                     modifier = Modifier
                         .padding(
@@ -103,11 +107,14 @@ fun DeviceView(
                         )
                 ) {
                     Text(service.uuid.toString(), style = MaterialTheme.typography.bodySmall)
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    ) {
-                        service.characteristics.forEach { characteristic ->
+                    service.characteristics.forEach { characteristic ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    vertical = 4.dp,
+                                )
+                        ) {
                             CharacteristicView(
                                 navController = navController,
                                 characteristic = characteristic,
@@ -129,34 +136,40 @@ fun CharacteristicView(
 
     val data = characteristic.data.collectAsStateWithLifecycle()
 
-    Column {
-        Text(
-            characteristic.uuid.toString(),
-            style = MaterialTheme.typography.bodyMedium,
+    Card() {
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    horizontal = 16.dp,
-                    vertical = 4.dp,
+                .padding(10.dp),
+        ) {
+            Column {
+                Text(
+                    characteristic.uuid.toString(),
+                    style = MaterialTheme.typography.bodyMedium,
                 )
-        )
-        Text(
-            data.value.hexString,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = 16.dp,
-                    vertical = 4.dp,
+                Text(
+                    data.value.hexString,
+                    style = MaterialTheme.typography.bodySmall,
                 )
-        )
-        TextButton({
-            CoroutineScope(Dispatchers.IO).launch {
-                characteristic.read()
             }
-        }) {
-            Text("Read")
+            TextButton({
+                CoroutineScope(Dispatchers.IO).launch {
+                    characteristic.read()
+                }
+            }) {
+                Text("Read")
+            }
         }
+//        Column(
+////            verticalAlignment = Alignment.CenterVertically,
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(10.dp),
+//        ) {
+
+
+//        }
     }
 }
 
