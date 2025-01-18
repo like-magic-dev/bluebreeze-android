@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import dev.likemagic.bluebreeze.BBCharacteristic
+import dev.likemagic.bluebreeze.BBCharacteristicProperty
 import dev.likemagic.bluebreeze.BBDevice
 import dev.likemagic.bluebreeze.BBDeviceConnectionStatus
 import kotlinx.coroutines.CoroutineScope
@@ -136,6 +137,11 @@ fun CharacteristicView(
 
     val data = characteristic.data.collectAsStateWithLifecycle()
 
+    val canRead = characteristic.properties.contains(BBCharacteristicProperty.read)
+    val canWriteWithResponse = characteristic.properties.contains(BBCharacteristicProperty.writeWithResponse)
+    val canWriteWithoutResponse = characteristic.properties.contains(BBCharacteristicProperty.writeWithoutResponse)
+    val canNotify = characteristic.properties.contains(BBCharacteristicProperty.notify)
+
     Card() {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -153,23 +159,30 @@ fun CharacteristicView(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            TextButton({
-                CoroutineScope(Dispatchers.IO).launch {
-                    characteristic.read()
+            Row {
+                if (canRead) {
+                    TextButton({
+                        CoroutineScope(Dispatchers.IO).launch {
+                            characteristic.read()
+                        }
+                    }) {
+                        Text("READ")
+                    }
                 }
-            }) {
-                Text("Read")
+                if (canWriteWithResponse or canWriteWithoutResponse) {
+                    TextButton({
+                    }) {
+                        Text("WRITE")
+                    }
+                }
+                if (canNotify) {
+                    TextButton({
+                    }) {
+                        Text("SUBSCRIBE")
+                    }
+                }
             }
         }
-//        Column(
-////            verticalAlignment = Alignment.CenterVertically,
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(10.dp),
-//        ) {
-
-
-//        }
     }
 }
 

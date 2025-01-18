@@ -14,10 +14,31 @@ class BBCharacteristic(
     val characteristic: BluetoothGattCharacteristic,
     val operationQueue: BBOperationQueue,
 ): BluetoothGattCallback() {
-    // region Computed public properties
+    // region Computed properties
 
     val uuid: BBUUID
         get() = characteristic.uuid
+
+    val properties: Set<BBCharacteristicProperty>
+        get() {
+            val result = mutableSetOf<BBCharacteristicProperty>()
+            if ((characteristic.properties and BluetoothGattCharacteristic.PROPERTY_READ) != 0) {
+                result.add(BBCharacteristicProperty.read)
+            }
+            if ((characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0) {
+                result.add(BBCharacteristicProperty.writeWithResponse)
+            }
+            if ((characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0) {
+                result.add(BBCharacteristicProperty.writeWithoutResponse)
+            }
+            if ((characteristic.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) {
+                result.add(BBCharacteristicProperty.notify)
+            }
+            if ((characteristic.properties and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) {
+                result.add(BBCharacteristicProperty.notify)
+            }
+            return result
+        }
 
     // endregion
 
