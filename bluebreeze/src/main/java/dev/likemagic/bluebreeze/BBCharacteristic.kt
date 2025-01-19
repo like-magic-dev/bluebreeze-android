@@ -4,9 +4,12 @@ import BBUUID
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.os.Build
 import androidx.annotation.RequiresApi
 import dev.likemagic.bluebreeze.operations.BBOperationRead
+import dev.likemagic.bluebreeze.operations.BBOperationSubscribe
+import dev.likemagic.bluebreeze.operations.BBOperationUnsubscribe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -42,10 +45,13 @@ class BBCharacteristic(
 
     // endregion
 
-    // region Data
+    // region Observable properties
 
     private val _data = MutableStateFlow<ByteArray>(byteArrayOf())
     val data: StateFlow<ByteArray> get() = _data
+
+    private val _isNotifying = MutableStateFlow<Boolean>(false)
+    val isNotifying: StateFlow<Boolean> get() = _isNotifying
 
     // endregion
 
@@ -54,6 +60,22 @@ class BBCharacteristic(
     suspend fun read(): ByteArray {
         return operationQueue.operationEnqueue(
             BBOperationRead(characteristic)
+        )
+    }
+
+    suspend fun write(data: ByteArray) {
+
+    }
+
+    suspend fun subscribe() {
+        return operationQueue.operationEnqueue(
+            BBOperationSubscribe(characteristic)
+        )
+    }
+
+    suspend fun unsubscribe() {
+        return operationQueue.operationEnqueue(
+            BBOperationUnsubscribe(characteristic)
         )
     }
 
@@ -72,6 +94,19 @@ class BBCharacteristic(
             BluetoothGatt.STATE_DISCONNECTED -> {
                 _data.value = byteArrayOf()
             }
+        }
+    }
+
+    override fun onDescriptorWrite(
+        gatt: BluetoothGatt?,
+        descriptor: BluetoothGattDescriptor?,
+        status: Int
+    ) {
+        gatt ?: return
+        descriptor ?: return
+
+        if (descriptor.uuid == BBConstants.UUID.cccd) {
+            _isNotifying.value = (!descriptor.value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE))
         }
     }
 

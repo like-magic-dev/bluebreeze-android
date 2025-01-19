@@ -191,6 +191,8 @@ class BBDevice(
         gatt ?: return
         descriptor ?: return
 
+        characteristic(descriptor.characteristic.uuid)?.onDescriptorWrite(gatt, descriptor, status)
+
         operationCurrent?.onDescriptorWrite(gatt, descriptor, status)
         operationCheck()
     }

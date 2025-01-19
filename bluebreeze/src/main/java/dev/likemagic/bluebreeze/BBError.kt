@@ -16,8 +16,8 @@ class BBError(
             message = "Gatt disconnected"
         )
 
-        fun gattError(code: Int): BBError = BBError(
-            message = "Gatt error: $code"
+        fun gattError(code: Int? = null): BBError = BBError(
+            message = "Gatt error: ${code?.toString() ?: "RUNTIME"}"
         )
     }
 }

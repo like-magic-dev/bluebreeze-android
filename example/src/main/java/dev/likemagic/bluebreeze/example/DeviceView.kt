@@ -89,37 +89,39 @@ fun DeviceView(
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.Start
-        ) {
-            items(
-                services.value.toList(),
-                key = { service -> service.uuid }
-            ) { service ->
-                Column(
-                    modifier = Modifier
-                        .padding(
-                            horizontal = 16.dp,
-                            vertical = 4.dp,
-                        )
-                ) {
-                    Text(service.uuid.toString(), style = MaterialTheme.typography.bodySmall)
-                    service.characteristics.forEach { characteristic ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    vertical = 4.dp,
-                                )
-                        ) {
-                            CharacteristicView(
-                                navController = navController,
-                                characteristic = characteristic,
+        if (connectionStatus.value == BBDeviceConnectionStatus.connected) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.Start
+            ) {
+                items(
+                    services.value.toList(),
+                    key = { service -> service.uuid }
+                ) { service ->
+                    Column(
+                        modifier = Modifier
+                            .padding(
+                                horizontal = 16.dp,
+                                vertical = 4.dp,
                             )
+                    ) {
+                        Text(service.uuid.toString(), style = MaterialTheme.typography.bodySmall)
+                        service.characteristics.forEach { characteristic ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        vertical = 4.dp,
+                                    )
+                            ) {
+                                CharacteristicView(
+                                    navController = navController,
+                                    characteristic = characteristic,
+                                )
+                            }
                         }
                     }
                 }
@@ -136,6 +138,7 @@ fun CharacteristicView(
     val context = navController.context
 
     val data = characteristic.data.collectAsStateWithLifecycle()
+    val isNotifying = characteristic.isNotifying.collectAsStateWithLifecycle()
 
     val canRead = characteristic.properties.contains(BBCharacteristicProperty.read)
     val canWriteWithResponse = characteristic.properties.contains(BBCharacteristicProperty.writeWithResponse)
@@ -176,9 +179,22 @@ fun CharacteristicView(
                     }
                 }
                 if (canNotify) {
-                    TextButton({
-                    }) {
-                        Text("SUBSCRIBE")
+                    if (isNotifying.value) {
+                        TextButton({
+                            CoroutineScope(Dispatchers.IO).launch {
+                                characteristic.unsubscribe()
+                            }
+                        }) {
+                            Text("UNSUBSCRIBE")
+                        }
+                    } else {
+                        TextButton({
+                            CoroutineScope(Dispatchers.IO).launch {
+                                characteristic.subscribe()
+                            }
+                        }) {
+                            Text("SUBSCRIBE")
+                        }
                     }
                 }
             }
