@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -19,8 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -34,7 +38,6 @@ import dev.likemagic.bluebreeze.BBDeviceConnectionStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.coroutines.suspendCoroutine
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,6 +148,16 @@ fun CharacteristicView(
     val canWriteWithoutResponse = characteristic.properties.contains(BBCharacteristicProperty.writeWithoutResponse)
     val canNotify = characteristic.properties.contains(BBCharacteristicProperty.notify)
 
+    val openWriteDialog = remember { mutableStateOf(false) }
+    if (openWriteDialog.value) {
+        CharacteristicWriteDialog(
+            characteristic = characteristic,
+            onDismiss = {
+                openWriteDialog.value = false
+            }
+        )
+    }
+
     Card() {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -174,6 +187,7 @@ fun CharacteristicView(
                 }
                 if (canWriteWithResponse or canWriteWithoutResponse) {
                     TextButton({
+                        openWriteDialog.value = true
                     }) {
                         Text("WRITE")
                     }
@@ -201,6 +215,73 @@ fun CharacteristicView(
         }
     }
 }
+
+@Composable
+fun CharacteristicWriteDialog(
+    characteristic: BBCharacteristic,
+    onDismiss: () -> Unit,
+) {
+    val writeValue = remember { mutableStateOf("") }
+    AlertDialog(
+        title = {
+            Text(text = stringResource(R.string.write_characteristic))
+        },
+        text = {
+            TextField(
+                value = writeValue.value,
+                onValueChange = {
+                    val VALID = "0123456789ABCDEF".toCharArray().toSet()
+                    writeValue.value = it.uppercase().filter { it in VALID }
+                },
+                placeholder = { Text(text = stringResource(R.string.enter_value)) },
+            )
+        },
+        onDismissRequest = {
+            onDismiss()
+        },
+        confirmButton = {
+            TextButton(
+                enabled = (writeValue.value.byteArray != null),
+                onClick = {
+                    writeValue.value.byteArray?.let {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val withResponse = characteristic.properties.contains(
+                                BBCharacteristicProperty.writeWithResponse
+                            )
+                            characteristic.write(
+                                it,
+                                withResponse = withResponse,
+                            )
+                        }
+                    }
+                    onDismiss()
+                }
+            ) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                }
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+val String.byteArray: ByteArray?
+    get() {
+        check((length % 2) == 0) {
+            return null
+        }
+
+        return chunked(2)
+            .map { it.toInt(16).toByte() }
+            .toByteArray()
+    }
 
 val ByteArray.hexString: String
     get() = joinToString("") { "%02x".format(it) }

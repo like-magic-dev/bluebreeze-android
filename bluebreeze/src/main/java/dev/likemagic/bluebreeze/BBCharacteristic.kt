@@ -10,6 +10,7 @@ import androidx.annotation.RequiresApi
 import dev.likemagic.bluebreeze.operations.BBOperationRead
 import dev.likemagic.bluebreeze.operations.BBOperationSubscribe
 import dev.likemagic.bluebreeze.operations.BBOperationUnsubscribe
+import dev.likemagic.bluebreeze.operations.BBOperationWrite
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -63,8 +64,10 @@ class BBCharacteristic(
         )
     }
 
-    suspend fun write(data: ByteArray) {
-
+    suspend fun write(data: ByteArray, withResponse: Boolean) {
+        return operationQueue.operationEnqueue(
+            BBOperationWrite(characteristic, data, withResponse)
+        )
     }
 
     suspend fun subscribe() {

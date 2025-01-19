@@ -13,4 +13,6 @@
     <string name="ble_scanning">BLE Scanning</string>
     <string name="disconnect">Disconnect</string>
     <string name="connect">Connect</string>
+    <string name="write_characteristic">Write characteristic</string>
+    <string name="enter_value">Enter value</string>
 </resources>
