@@ -1,5 +1,6 @@
 package dev.likemagic.bluebreeze.example
 
+import BBError
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,7 +70,11 @@ fun DeviceView(
                         BBDeviceConnectionStatus.connected -> {
                             TextButton({
                                 CoroutineScope(Dispatchers.IO).launch {
-                                    device.disconnect()
+                                    try {
+                                        device.disconnect()
+                                    } catch (e: BBError) {
+                                        // Ignore error
+                                    }
                                 }
                             }) {
                                 Text(stringResource(R.string.disconnect).uppercase())
@@ -78,9 +83,13 @@ fun DeviceView(
                         BBDeviceConnectionStatus.disconnected -> {
                             TextButton({
                                 CoroutineScope(Dispatchers.IO).launch {
-                                    device.connect()
-                                    device.discoverServices()
-                                    device.requestMTU(255)
+                                    try {
+                                        device.connect()
+                                        device.discoverServices()
+                                        device.requestMTU(255)
+                                    } catch (e: BBError) {
+                                        // Ignore error
+                                    }
                                 }
                             }) {
                                 Text(stringResource(R.string.connect).uppercase())
@@ -179,7 +188,11 @@ fun CharacteristicView(
                 if (canRead) {
                     TextButton({
                         CoroutineScope(Dispatchers.IO).launch {
-                            characteristic.read()
+                            try {
+                                characteristic.read()
+                            } catch (e: BBError) {
+                                // Ignore error
+                            }
                         }
                     }) {
                         Text("READ")
@@ -196,7 +209,11 @@ fun CharacteristicView(
                     if (isNotifying.value) {
                         TextButton({
                             CoroutineScope(Dispatchers.IO).launch {
-                                characteristic.unsubscribe()
+                                try {
+                                    characteristic.unsubscribe()
+                                } catch (e: BBError) {
+                                    // Ignore error
+                                }
                             }
                         }) {
                             Text("UNSUBSCRIBE")
@@ -204,7 +221,11 @@ fun CharacteristicView(
                     } else {
                         TextButton({
                             CoroutineScope(Dispatchers.IO).launch {
-                                characteristic.subscribe()
+                                try {
+                                    characteristic.subscribe()
+                                } catch (e: BBError) {
+                                    // Ignore error
+                                }
                             }
                         }) {
                             Text("SUBSCRIBE")
@@ -243,15 +264,20 @@ fun CharacteristicWriteDialog(
             TextButton(
                 enabled = (writeValue.value.byteArray != null),
                 onClick = {
+                    val writeWithResponse = characteristic.properties.contains(
+                        BBCharacteristicProperty.writeWithResponse
+                    )
+
                     writeValue.value.byteArray?.let {
                         CoroutineScope(Dispatchers.IO).launch {
-                            val withResponse = characteristic.properties.contains(
-                                BBCharacteristicProperty.writeWithResponse
-                            )
-                            characteristic.write(
-                                it,
-                                withResponse = withResponse,
-                            )
+                            try {
+                                characteristic.write(
+                                    it,
+                                    withResponse = writeWithResponse,
+                                )
+                            } catch (e: BBError) {
+                                // Ignore error
+                            }
                         }
                     }
                     onDismiss()
