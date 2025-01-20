@@ -24,22 +24,41 @@ class BBDevice(
     val context: Context,
     val device: BluetoothDevice,
 ): BluetoothGattCallback(), BBOperationQueue {
-    var gatt: BluetoothGatt? = null
+    private var gatt: BluetoothGatt? = null
 
-    // region Dynamic properties
-
-    var rssi: Int = 0
-    var advertiseData: Map<UByte, ByteArray> = emptyMap()
-
-    // endregion
-
-    // region Computed public properties
+    // region Properties
 
     val address: String
         get() = device.address
 
     val name: String?
-        get() = device.name ?: advertiseData[0x09u]?.toString(Charset.defaultCharset())
+        get() = device.name ?:
+            advertisementData[BBConstants.Advertisement.LOCAL_NAME]?.toString(Charset.defaultCharset()) ?:
+            advertisementData[BBConstants.Advertisement.LOCAL_NAME_SHORTENED]?.toString(Charset.defaultCharset()) ?:
+            advertisementData[BBConstants.Advertisement.BROADCAST_NAME]?.toString(Charset.defaultCharset())
+
+    var rssi: Int = 0
+
+    var advertisementData: Map<UByte, ByteArray> = emptyMap()
+
+    var advertisedServices: List<BBUUID> = emptyList()
+
+    var isConnectable: Boolean = false
+
+    val manufacturerData: ByteArray?
+        get() = advertisementData[BBConstants.Advertisement.MANUFACTURER]
+
+    val manufacturerId: Int?
+        get() {
+            val manufacturerData = manufacturerData ?: return null
+            return (manufacturerData[1].toUByte().toInt() shl 8) or (manufacturerData[0].toUByte().toInt())
+        }
+
+    val manufacturerName: String?
+        get() {
+            val manufacturerId = manufacturerId ?: return null
+            return BBConstants.Manufacturer.knownIds[manufacturerId]
+        }
 
     // endregion
 

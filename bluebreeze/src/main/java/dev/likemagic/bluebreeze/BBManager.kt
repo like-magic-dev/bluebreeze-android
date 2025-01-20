@@ -284,14 +284,61 @@ class BBManager(
             return result
         }
 
+        private fun parseAdvertisedServices(
+            advertisedData: Map<UByte, ByteArray>
+        ): List<BBUUID> {
+            val uuids: MutableList<BBUUID> = mutableListOf()
+
+            for (entry in advertisedData) {
+                val buffer = ByteBuffer.wrap(entry.value)
+
+                when (entry.key) {
+                    BBConstants.Advertisement.UUIDS_16_BIT_INCOMPLETE,
+                    BBConstants.Advertisement.UUIDS_16_BIT_COMPLETE ->
+                        while (buffer.remaining() >= 2) {
+                            val bytes = (0 until 2).map { buffer.get() }
+                            val uuidShort = bytes.reversed().joinToString(separator = "") { it.hexString }
+                            uuids.add(BBUUID.fromString(uuidShort))
+                        }
+
+                    BBConstants.Advertisement.UUIDS_128_BIT_INCOMPLETE,
+                    BBConstants.Advertisement.UUIDS_128_BIT_COMPLETE ->
+                        while (buffer.remaining() >= 16) {
+                            val bytes = (0 until 16).map { buffer.get() }
+                            val uuid = listOf(
+                                bytes.subList(12, 16).reversed().joinToString(separator = "") { it.hexString },
+                                bytes.subList(10, 12).reversed().joinToString(separator = "") { it.hexString },
+                                bytes.subList(8, 10).reversed().joinToString(separator = "") { it.hexString },
+                                bytes.subList(6, 8).reversed().joinToString(separator = "") { it.hexString },
+                                bytes.subList(0, 6).reversed().joinToString(separator = "") { it.hexString },
+                            ).joinToString(separator = "-")
+                            uuids.add(BBUUID.fromString(uuid))
+                        }
+                }
+            }
+
+            return uuids
+        }
+
+
         private fun processScanResult(result: ScanResult) {
             val devices = _devices.value.toMutableMap()
             devices[result.device.address] = devices[result.device.address] ?: BBDevice(activity, result.device)
 
-            devices[result.device.address]?.rssi = result.rssi
-            devices[result.device.address]?.advertiseData = result.scanRecord?.bytes?.let {
-                parseAdvertisedData(it)
-            } ?: emptyMap()
+            devices[result.device.address]?.run {
+                rssi = result.rssi
+
+                advertisementData = result.scanRecord?.bytes?.let {
+                    parseAdvertisedData(it)
+                } ?: emptyMap()
+
+                advertisedServices = parseAdvertisedServices(advertisementData)
+
+                isConnectable = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+                    true
+                else
+                    result.isConnectable
+            }
 
             _devices.value = devices
         }
@@ -367,3 +414,5 @@ fun ByteArray.byteBuffer(): ByteBuffer {
     byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
     return byteBuffer
 }
+
+val Byte.hexString: String get() = toUByte().toString(16).uppercase().padStart(2, '0')

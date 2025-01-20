@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -94,12 +95,18 @@ fun ScanningView(
                         Column {
                             Text(
                                 device.name ?: device.address,
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = MaterialTheme.typography.bodyLarge.merge(fontWeight = FontWeight.Bold),
                             )
                             Text(
-                                device.address,
-                                style = MaterialTheme.typography.bodySmall,
+                                device.manufacturerName ?: "-",
+                                style = MaterialTheme.typography.bodyMedium,
                             )
+                            if (device.advertisedServices.isNotEmpty()) {
+                                Text(
+                                    device.advertisedServices.joinToString(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                         }
                         Text(
                             device.rssi.toString(),
