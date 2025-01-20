@@ -42,6 +42,13 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
 
     // endregion
 
+    // region Timeout
+
+    val timeout: Float
+        get() = 5.0f
+
+    // endregion
+
     // region Bluetooth GATT callback
 
     override fun onConnectionStateChange(

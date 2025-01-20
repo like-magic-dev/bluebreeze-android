@@ -16,9 +16,11 @@ import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.charset.Charset
+import java.util.Timer
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.coroutines.suspendCoroutine
+import kotlin.concurrent.schedule
 
 class BBDevice(
     val context: Context,
@@ -130,11 +132,19 @@ class BBDevice(
         }
 
         operationCurrent = operationQueue.poll()
-        operationCurrent?.execute(
-            context,
-            device,
-            gatt,
-        )
+        operationCurrent?.let { operation ->
+            operation.execute(
+                context,
+                device,
+                gatt,
+            )
+
+            Timer().schedule((operation.timeout * 1000).toLong()) {
+                if (!operation.isComplete) {
+                    operation.cancel()
+                }
+            }
+        }
     }
 
     // endregion
