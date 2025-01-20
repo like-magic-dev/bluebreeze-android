@@ -58,7 +58,7 @@ class BBDevice(
 
     // region MTU
 
-    private val _mtu = MutableStateFlow(23)
+    private val _mtu = MutableStateFlow(BBConstants.defaultMtu)
     val mtu: StateFlow<Int> get() = _mtu
 
     // endregion
@@ -144,6 +144,8 @@ class BBDevice(
 
             BluetoothGatt.STATE_DISCONNECTED -> {
                 _connectionStatus.value = BBDeviceConnectionStatus.disconnected
+                _mtu.value = BBConstants.defaultMtu
+                _services.value = emptyList()
             }
         }
 
