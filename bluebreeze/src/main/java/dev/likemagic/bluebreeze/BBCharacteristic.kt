@@ -48,7 +48,7 @@ class BBCharacteristic(
 
     // region Observable properties
 
-    private val _data = MutableStateFlow<ByteArray>(byteArrayOf())
+    private val _data = MutableStateFlow(byteArrayOf())
     val data: StateFlow<ByteArray> get() = _data
 
     private val _isNotifying = MutableStateFlow<Boolean>(false)
@@ -122,7 +122,7 @@ class BBCharacteristic(
         gatt ?: return
         characteristic ?: return
 
-        _data.value = characteristic.value
+        _data.value = characteristic.value ?: byteArrayOf()
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -143,7 +143,7 @@ class BBCharacteristic(
         gatt ?: return
         characteristic ?: return
 
-        _data.value = characteristic.value
+        _data.value = characteristic.value ?: byteArrayOf()
     }
 
     @Deprecated("Deprecated in Java")
@@ -154,7 +154,7 @@ class BBCharacteristic(
         gatt ?: return
         characteristic ?: return
 
-        _data.value = characteristic.value
+        _data.value = characteristic.value ?: byteArrayOf()
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)

@@ -29,6 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -46,8 +48,6 @@ fun DeviceView(
     navController: NavController,
     device: BBDevice,
 ) {
-    val context = navController.context
-
     val connectionStatus = device.connectionStatus.collectAsStateWithLifecycle()
     val services = device.services.collectAsStateWithLifecycle()
 
@@ -120,7 +120,11 @@ fun DeviceView(
                                 vertical = 4.dp,
                             )
                     ) {
-                        Text(service.uuid.toString(), style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            service.uuid.toString(),
+                            style = MaterialTheme.typography.bodySmall
+                                .merge(fontWeight = FontWeight.Bold)
+                        )
                         service.characteristics.forEach { characteristic ->
                             Box(
                                 modifier = Modifier
@@ -147,8 +151,6 @@ fun CharacteristicView(
     navController: NavController,
     characteristic: BBCharacteristic,
 ) {
-    val context = navController.context
-
     val data = characteristic.data.collectAsStateWithLifecycle()
     val isNotifying = characteristic.isNotifying.collectAsStateWithLifecycle()
 
@@ -167,68 +169,75 @@ fun CharacteristicView(
         )
     }
 
-    Card() {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
+    Card {
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+            ) {
                 Text(
                     characteristic.uuid.toString(),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge
+                        .merge(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    data.value.hexString,
-                    style = MaterialTheme.typography.bodySmall,
+                    if (data.value.isEmpty()) "-" else data.value.hexString,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            Row {
-                if (canRead) {
-                    TextButton({
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                characteristic.read()
-                            } catch (e: BBError) {
-                                // Ignore error
-                            }
-                        }
-                    }) {
-                        Text("READ")
-                    }
-                }
-                if (canWriteWithResponse or canWriteWithoutResponse) {
-                    TextButton({
-                        openWriteDialog.value = true
-                    }) {
-                        Text("WRITE")
-                    }
-                }
-                if (canNotify) {
-                    if (isNotifying.value) {
+            Row(
+                horizontalArrangement = Arrangement.End,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row {
+                    if (canRead) {
                         TextButton({
                             CoroutineScope(Dispatchers.IO).launch {
                                 try {
-                                    characteristic.unsubscribe()
+                                    characteristic.read()
                                 } catch (e: BBError) {
                                     // Ignore error
                                 }
                             }
                         }) {
-                            Text("UNSUBSCRIBE")
+                            Text("READ")
                         }
-                    } else {
+                    }
+                    if (canWriteWithResponse or canWriteWithoutResponse) {
                         TextButton({
-                            CoroutineScope(Dispatchers.IO).launch {
-                                try {
-                                    characteristic.subscribe()
-                                } catch (e: BBError) {
-                                    // Ignore error
-                                }
-                            }
+                            openWriteDialog.value = true
                         }) {
-                            Text("SUBSCRIBE")
+                            Text("WRITE")
+                        }
+                    }
+                    if (canNotify) {
+                        if (isNotifying.value) {
+                            TextButton({
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    try {
+                                        characteristic.unsubscribe()
+                                    } catch (e: BBError) {
+                                        // Ignore error
+                                    }
+                                }
+                            }) {
+                                Text("UNSUBSCRIBE")
+                            }
+                        } else {
+                            TextButton({
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    try {
+                                        characteristic.subscribe()
+                                    } catch (e: BBError) {
+                                        // Ignore error
+                                    }
+                                }
+                            }) {
+                                Text("SUBSCRIBE")
+                            }
                         }
                     }
                 }
@@ -310,5 +319,5 @@ val String.byteArray: ByteArray?
     }
 
 val ByteArray.hexString: String
-    get() = joinToString("") { "%02x".format(it) }
+    get() = joinToString("") { it.toUByte().toString(16).uppercase().padStart(2, '0') }
 
