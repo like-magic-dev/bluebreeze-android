@@ -16,6 +16,7 @@ import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.charset.Charset
+import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.coroutines.suspendCoroutine
 
@@ -58,7 +59,7 @@ class BBDevice(
 
     // region MTU
 
-    private val _mtu = MutableStateFlow(BBConstants.defaultMtu)
+    private val _mtu = MutableStateFlow(BBConstants.DEFAULT_MTU)
     val mtu: StateFlow<Int> get() = _mtu
 
     // endregion
@@ -144,7 +145,7 @@ class BBDevice(
 
             BluetoothGatt.STATE_DISCONNECTED -> {
                 _connectionStatus.value = BBDeviceConnectionStatus.disconnected
-                _mtu.value = BBConstants.defaultMtu
+                _mtu.value = BBConstants.DEFAULT_MTU
                 _services.value = emptyList()
             }
         }
@@ -160,7 +161,7 @@ class BBDevice(
 
         _services.value = gatt.services.map {
             BBService(
-                uuid = it.uuid,
+                uuid = BBUUID(uuid = it.uuid),
                 characteristics = it.characteristics.map {
                     BBCharacteristic(
                         characteristic = it,
@@ -199,6 +200,7 @@ class BBDevice(
         operationCheck()
     }
 
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicRead(
         gatt: BluetoothGatt?,
@@ -241,6 +243,7 @@ class BBDevice(
         operationCheck()
     }
 
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt?,
@@ -270,10 +273,10 @@ class BBDevice(
     // endregion
 }
 
-fun BBDevice.characteristic(uuid: BBUUID): BBCharacteristic? {
+fun BBDevice.characteristic(uuid: UUID): BBCharacteristic? {
     services.value.forEach { service ->
         service.characteristics.forEach { characteristic ->
-            if (characteristic.uuid == uuid) {
+            if (characteristic.uuid.equals(uuid)) {
                 return characteristic
             }
         }

@@ -24,6 +24,7 @@ class BBOperationRead(
         gatt.readCharacteristic(characteristic)
     }
 
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicRead(
         gatt: BluetoothGatt?,

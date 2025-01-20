@@ -3,7 +3,6 @@ package dev.likemagic.bluebreeze.operations
 import BBError
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothStatusCodes
@@ -15,6 +14,8 @@ import dev.likemagic.bluebreeze.BBOperation
 class BBOperationUnsubscribe(
     private val characteristic: BluetoothGattCharacteristic
 ) : BBOperation<Unit>() {
+    private val writeValue = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+
     override fun execute(
         context: Context,
         device: BluetoothDevice,
@@ -35,15 +36,14 @@ class BBOperationUnsubscribe(
             return
         }
 
-        val value = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (gatt.writeDescriptor(descriptor, value) != BluetoothStatusCodes.SUCCESS) {
+        @Suppress("DEPRECATION")
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            descriptor.value = writeValue
+            if (!gatt.writeDescriptor(descriptor)) {
                 setError(BBError.gattError())
             }
         } else {
-            descriptor.value = value
-            if (!gatt.writeDescriptor(descriptor)) {
+            if (gatt.writeDescriptor(descriptor, writeValue) != BluetoothStatusCodes.SUCCESS) {
                 setError(BBError.gattError())
             }
         }
@@ -54,6 +54,20 @@ class BBOperationUnsubscribe(
         descriptor: BluetoothGattDescriptor?,
         status: Int
     ) {
+        gatt ?: run {
+            setError(BBError.gattDisconnected())
+            return
+        }
+
+        descriptor ?: run {
+            setError(BBError.gattDisconnected())
+            return
+        }
+
+        if (descriptor.uuid != BBConstants.UUID.cccd) {
+            return
+        }
+
         if (status == BluetoothGatt.GATT_SUCCESS) {
             setSuccess(Unit)
         } else {

@@ -111,7 +111,7 @@ fun DeviceView(
             ) {
                 items(
                     services.value.toList(),
-                    key = { service -> service.uuid }
+                    key = { service -> service.uuid.toString() }
                 ) { service ->
                     Column(
                         modifier = Modifier

@@ -28,16 +28,17 @@ class BBOperationWrite(
         else
             BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        @Suppress("DEPRECATION")
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            characteristic.value = data
+            characteristic.writeType = writeType
+            gatt.writeCharacteristic(characteristic)
+        } else {
             gatt.writeCharacteristic(
                 characteristic,
                 data,
                 writeType
             )
-        } else {
-            characteristic.value = data
-            characteristic.writeType = writeType
-            gatt.writeCharacteristic(characteristic)
         }
     }
 

@@ -21,7 +21,7 @@ class BBCharacteristic(
     // region Computed properties
 
     val uuid: BBUUID
-        get() = characteristic.uuid
+        get() = BBUUID(uuid = characteristic.uuid)
 
     val properties: Set<BBCharacteristicProperty>
         get() {
@@ -71,15 +71,19 @@ class BBCharacteristic(
     }
 
     suspend fun subscribe() {
-        return operationQueue.operationEnqueue(
+        operationQueue.operationEnqueue(
             BBOperationSubscribe(characteristic)
         )
+
+        _isNotifying.value = true
     }
 
     suspend fun unsubscribe() {
-        return operationQueue.operationEnqueue(
+        operationQueue.operationEnqueue(
             BBOperationUnsubscribe(characteristic)
         )
+
+        _isNotifying.value = false
     }
 
     // endregion
@@ -100,19 +104,7 @@ class BBCharacteristic(
         }
     }
 
-    override fun onDescriptorWrite(
-        gatt: BluetoothGatt?,
-        descriptor: BluetoothGattDescriptor?,
-        status: Int
-    ) {
-        gatt ?: return
-        descriptor ?: return
-
-        if (descriptor.uuid == BBConstants.UUID.cccd) {
-            _isNotifying.value = (!descriptor.value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE))
-        }
-    }
-
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicRead(
         gatt: BluetoothGatt?,
@@ -142,10 +134,9 @@ class BBCharacteristic(
     ) {
         gatt ?: return
         characteristic ?: return
-
-        _data.value = characteristic.value ?: byteArrayOf()
     }
 
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt?,
