@@ -27,7 +27,7 @@ class BBUUID(
 
     override
     fun toString(): String {
-        val result = uuid.toString()
+        val result = uuid.toString().uppercase()
         return if (result.startsWith(UUID_PREFIX) and result.endsWith(UUID_SUFFIX)) {
             result.substring(4, 8)
         } else {

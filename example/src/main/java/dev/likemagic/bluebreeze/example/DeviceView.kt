@@ -121,7 +121,7 @@ fun DeviceView(
                             )
                     ) {
                         Text(
-                            service.uuid.toString(),
+                            service.name ?: service.uuid.toString(),
                             style = MaterialTheme.typography.bodySmall
                                 .merge(fontWeight = FontWeight.Bold)
                         )
@@ -179,7 +179,7 @@ fun CharacteristicView(
                     .padding(10.dp),
             ) {
                 Text(
-                    characteristic.uuid.toString(),
+                    characteristic.name ?: characteristic.uuid.toString(),
                     style = MaterialTheme.typography.bodyLarge
                         .merge(fontWeight = FontWeight.Bold)
                 )

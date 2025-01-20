@@ -4,7 +4,6 @@ import BBUUID
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattDescriptor
 import android.os.Build
 import androidx.annotation.RequiresApi
 import dev.likemagic.bluebreeze.operations.BBOperationRead
@@ -22,6 +21,9 @@ class BBCharacteristic(
 
     val uuid: BBUUID
         get() = BBUUID(uuid = characteristic.uuid)
+
+    val name: String?
+        get() = BBConstants.Characteristic.knownUUIDs[uuid]
 
     val properties: Set<BBCharacteristicProperty>
         get() {
