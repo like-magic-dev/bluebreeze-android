@@ -4,9 +4,7 @@ import BBError
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
-import java.util.UUID
 import kotlin.coroutines.Continuation
 
 abstract class BBOperation<T> : BluetoothGattCallback() {
