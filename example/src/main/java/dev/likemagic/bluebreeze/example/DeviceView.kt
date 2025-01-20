@@ -1,3 +1,8 @@
+//
+// Copyright (c) Like Magic e.U. and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+//
+
 package dev.likemagic.bluebreeze.example
 
 import BBError
@@ -320,4 +325,3 @@ val String.byteArray: ByteArray?
 
 val ByteArray.hexString: String
     get() = joinToString("") { it.toUByte().toString(16).uppercase().padStart(2, '0') }
-
