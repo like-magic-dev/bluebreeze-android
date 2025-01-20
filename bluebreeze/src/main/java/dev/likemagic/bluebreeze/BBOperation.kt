@@ -67,13 +67,3 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
 
     // endregion
 }
-
-fun BluetoothGatt.getCharacteristic(uuid: UUID?): BluetoothGattCharacteristic? {
-    services.forEach { service ->
-        service.getCharacteristic(uuid)?.let { characteristic ->
-            return characteristic
-        }
-    }
-
-    return null
-}
