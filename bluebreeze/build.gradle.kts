@@ -1,10 +1,15 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    id("com.vanniktech.maven.publish") version "0.30.0"
+    id("signing")
 }
 
 android {
     namespace = "dev.likemagic.bluebreeze"
+    version = "0.0.1"
     compileSdk = 35
 
     defaultConfig {
@@ -23,10 +28,12 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -38,4 +45,52 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.runner)
     androidTestImplementation(libs.espresso.core)
+}
+
+afterEvaluate {
+    mavenPublishing {
+        publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+        signAllPublications()
+
+        coordinates("dev.likemagic", "bluebreeze", "0.0.1")
+
+        pom {
+            name = "BlueBreeze"
+            description = "BlueBreeze Android SDK - A modern Bluetooth LE library"
+            version = "0.0.1"
+
+            url = "https://likemagic.dev"
+
+            packaging = "jar" // jar is the default, but still set it to make it clear
+
+            // Your choosen license
+            // Use https://choosealicense.com/ to decide, if you need help.
+            licenses {
+                license {
+                    name = "The MIT License"
+                    url = "https://opensource.org/license/mit"
+                }
+            }
+
+            scm {
+                url = "https://github.com/like-magic-dev/bluebreeze-android"
+                connection = "scm:git://github.com:like-magic-dev/bluebreeze-android.git"
+                developerConnection = "scm:git://github.com:like-magic-dev/bluebreeze-android.git"
+            }
+
+            developers {
+                developer {
+                    id = "amulloni"
+                    name = "Alessandro Mulloni"
+                    email = "ale@likemagic.dev"
+                    organizationUrl = "https://likemagic.dev/"
+                }
+            }
+        }
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
