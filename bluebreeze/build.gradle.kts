@@ -52,7 +52,11 @@ afterEvaluate {
         publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
         signAllPublications()
 
-        coordinates("dev.likemagic", "bluebreeze", "0.0.1")
+        coordinates(
+            groupId = "dev.likemagic",
+            artifactId = "bluebreeze",
+            version = "0.0.1"
+        )
 
         pom {
             name = "BlueBreeze"
