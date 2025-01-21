@@ -7,9 +7,11 @@ plugins {
     id("signing")
 }
 
+val currentVersion = "0.0.2"
+
 android {
     namespace = "dev.likemagic.bluebreeze"
-    version = "0.0.1"
+    version = currentVersion
     compileSdk = 35
 
     defaultConfig {
@@ -55,13 +57,13 @@ afterEvaluate {
         coordinates(
             groupId = "dev.likemagic",
             artifactId = "bluebreeze",
-            version = "0.0.1"
+            version = currentVersion
         )
 
         pom {
             name = "BlueBreeze"
             description = "BlueBreeze Android SDK - A modern Bluetooth LE library"
-            version = "0.0.1"
+            version = currentVersion
 
             url = "https://likemagic.dev"
 
