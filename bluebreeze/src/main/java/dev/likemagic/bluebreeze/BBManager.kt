@@ -7,6 +7,7 @@ package dev.likemagic.bluebreeze
 
 import BBError
 import BBUUID
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -34,7 +35,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class BBManager(
-    private val activity: Activity,
+    private val context: Context,
 ) : BroadcastReceiver() {
     // region Permissions
 
@@ -54,27 +55,28 @@ class BBManager(
     }
 
     init {
-        _authorizationStatus.value = authorizationCheck(activity)
+        _authorizationStatus.value = authorizationCheck(context)
     }
 
-    private fun authorizationCheck(activity: Activity): BBAuthorization {
+    private fun authorizationCheck(context: Context): BBAuthorization {
         // Check if all permissions are already granted
-        val granted = authorizationPermissions.map { ContextCompat.checkSelfPermission(activity, it) }
+        val granted = authorizationPermissions.map { ContextCompat.checkSelfPermission(context, it) }
         if (granted.all { it == PackageManager.PERMISSION_GRANTED }) {
             return BBAuthorization.authorized
         }
 
         // If some permissions have not been requested yet, we do not know the status
-        val requested = authorizationPermissions.map { activity.sharedPreferences.getBoolean(it, false) }
+        val requested = authorizationPermissions.map { context.sharedPreferences.getBoolean(it, false) }
         if (requested.any { !it }) {
             return BBAuthorization.unknown
         }
 
         // Check if any permission has been denied once and needs a rationale
-        val shouldShowRationale = authorizationPermissions.map {
-            ActivityCompat.shouldShowRequestPermissionRationale(activity, it)
-        }
-        if (shouldShowRationale.any { it }) {
+        if (authorizationPermissions
+                .any {
+                    (context is Activity) && ActivityCompat.shouldShowRequestPermissionRationale(context, it)
+                }
+        ) {
             return BBAuthorization.showRationale
         }
 
@@ -90,10 +92,11 @@ class BBManager(
         intentFilter.addAction(BBPermissionRequestActivity.DENIED)
 
         // Register a broadcast receiver
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
+        @SuppressLint("UnspecifiedRegisterReceiverFlag")
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(this, intentFilter)
+        } else {
+            context.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
         }
 
         // Start the hidden activity to request permissions
@@ -171,7 +174,7 @@ class BBManager(
     val state: StateFlow<BBState> get() = _state
 
     init {
-        _state.value = stateCheck(activity)
+        _state.value = stateCheck(context)
     }
 
     private fun stateCheck(context: Context): BBState {
@@ -328,7 +331,7 @@ class BBManager(
 
         private fun processScanResult(result: ScanResult) {
             val devices = _devices.value.toMutableMap()
-            devices[result.device.address] = devices[result.device.address] ?: BBDevice(activity, result.device)
+            devices[result.device.address] = devices[result.device.address] ?: BBDevice(context, result.device)
 
             devices[result.device.address]?.run {
                 rssi = result.rssi
