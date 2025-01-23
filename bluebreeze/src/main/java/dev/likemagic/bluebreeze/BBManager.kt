@@ -211,24 +211,24 @@ class BBManager(
 
     // end region
 
-    // region Scanning
+    // region Scan
 
-    private val _scanningEnabled = MutableStateFlow(false)
-    val scanningEnabled: StateFlow<Boolean> get() = _scanningEnabled
+    private val _scanEnabled = MutableStateFlow(false)
+    val scanEnabled: StateFlow<Boolean> get() = _scanEnabled
 
-    private val _scanningResults = MutableSharedFlow<BBScanResult>(
+    private val _scanResults = MutableSharedFlow<BBScanResult>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
-    val scanningResults: SharedFlow<BBScanResult> get() = _scanningResults
+    val scanResults: SharedFlow<BBScanResult> get() = _scanResults
 
-    private val scanningTimes: MutableList<Long> = ArrayList()
+    private val scanTimes: MutableList<Long> = ArrayList()
 
-    fun scanningStart(
+    fun scanStart(
         context: Context,
         serviceUUIDs: List<BBUUID> = emptyList()
     ) {
-        if (scanningEnabled.value) {
+        if (scanEnabled.value) {
             return
         }
 
@@ -251,10 +251,10 @@ class BBManager(
         // When scanning more than 5 times in 30 seconds, the system will block our app from scanning.
         // We need to catch this condition and prevent calling *startScan* below.
         val currentTime = System.currentTimeMillis()
-        if (scanningTimes.size < 5) {
-            scanningTimes.add(currentTime)
+        if (scanTimes.size < 5) {
+            scanTimes.add(currentTime)
         } else {
-            val deltaTime = (currentTime - scanningTimes[0])
+            val deltaTime = (currentTime - scanTimes[0])
 
             // We throw an exception so that the app code can restart scanning after the specified time
             if (deltaTime < 30000) {
@@ -262,24 +262,24 @@ class BBManager(
                 throw BBError.scan(timeToWait)
             }
 
-            scanningTimes.removeAt(0)
-            scanningTimes.add(currentTime)
+            scanTimes.removeAt(0)
+            scanTimes.add(currentTime)
         }
 
-        context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanningCallback)
-        _scanningEnabled.value = true
+        context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+        _scanEnabled.value = true
     }
 
-    fun scanningStop(context: Context) {
-        if (!scanningEnabled.value) {
+    fun scanStop(context: Context) {
+        if (!scanEnabled.value) {
             return
         }
 
-        context.bluetoothLeScanner?.stopScan(scanningCallback)
-        _scanningEnabled.value = false
+        context.bluetoothLeScanner?.stopScan(scanCallback)
+        _scanEnabled.value = false
     }
 
-    private val scanningCallback: ScanCallback = object : ScanCallback() {
+    private val scanCallback: ScanCallback = object : ScanCallback() {
         private fun parseAdvertisedData(advertisedData: ByteArray): Map<UByte, ByteArray> {
             val result: MutableMap<UByte, ByteArray> = mutableMapOf()
 
@@ -378,7 +378,7 @@ class BBManager(
                 advertisedServices = parseAdvertisedServices(advertisementData),
                 connectable = connectable
             )
-            _scanningResults.tryEmit(scanResult)
+            _scanResults.tryEmit(scanResult)
         }
 
         override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -395,7 +395,7 @@ class BBManager(
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            _scanningEnabled.value = false
+            _scanEnabled.value = false
         }
     }
 

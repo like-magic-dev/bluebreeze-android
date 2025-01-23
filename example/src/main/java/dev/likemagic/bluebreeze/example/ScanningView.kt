@@ -36,27 +36,27 @@ fun ScanningView(
 ) {
     val context = navController.context
 
-    val scanningEnabled = viewModel.scanningEnabled.collectAsStateWithLifecycle()
-    val scanningResults = viewModel.scanningResults.collectAsStateWithLifecycle()
+    val scanEnabled = viewModel.scanEnabled.collectAsStateWithLifecycle()
+    val scanResults = viewModel.scanResults.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(stringResource(R.string.ble_scanning))
+                    Text(stringResource(R.string.ble_scan))
                 },
                 actions = {
-                    if (scanningEnabled.value) {
+                    if (scanEnabled.value) {
                         TextButton({
-                            viewModel.manager.scanningStop(context)
+                            viewModel.manager.scanStop(context)
                         }) {
-                            Text(stringResource(R.string.stop_scanning).uppercase())
+                            Text(stringResource(R.string.stop_scan).uppercase())
                         }
                     } else {
                         TextButton({
-                            viewModel.manager.scanningStart(context)
+                            viewModel.manager.scanStart(context)
                         }) {
-                            Text(stringResource(R.string.start_scanning).uppercase())
+                            Text(stringResource(R.string.start_scan).uppercase())
                         }
                     }
                 },
@@ -72,7 +72,7 @@ fun ScanningView(
             horizontalAlignment = Alignment.Start
         ) {
             items(
-                scanningResults.value.values.toList(),
+                scanResults.value.values.toList(),
                 key = { device -> device.hashCode() }
             ) { device ->
                 Card(

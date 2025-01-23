@@ -36,20 +36,20 @@ class MainViewModel(
         initialValue = BBState.unknown,
     )
 
-    val scanningEnabled = manager.scanningEnabled.stateIn(
+    val scanEnabled = manager.scanEnabled.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = false,
     )
 
-    private val _scanningResults = MutableStateFlow<Map<String, BBScanResult>>(emptyMap())
-    val scanningResults: StateFlow<Map<String, BBScanResult>> get() = _scanningResults
+    private val _scanResults = MutableStateFlow<Map<String, BBScanResult>>(emptyMap())
+    val scanResults: StateFlow<Map<String, BBScanResult>> get() = _scanResults
 
     init {
         viewModelScope.launch {
-            manager.scanningResults
+            manager.scanResults
                 .collect { scanResult ->
-                    _scanningResults.value = scanningResults.value.toMutableMap().apply {
+                    _scanResults.value = scanResults.value.toMutableMap().apply {
                         this[scanResult.address] = scanResult
                     }
                 }
