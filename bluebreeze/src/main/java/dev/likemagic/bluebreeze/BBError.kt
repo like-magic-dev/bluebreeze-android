@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
 
-import java.util.Locale
+package dev.likemagic.bluebreeze
 
 class BBError(
     message: String = "Unspecified error"

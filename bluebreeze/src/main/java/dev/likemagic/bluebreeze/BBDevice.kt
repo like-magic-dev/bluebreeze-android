@@ -5,7 +5,6 @@
 
 package dev.likemagic.bluebreeze
 
-import BBUUID
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback

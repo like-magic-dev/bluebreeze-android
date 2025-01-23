@@ -5,7 +5,6 @@
 
 package dev.likemagic.bluebreeze.example
 
-import BBError
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +42,7 @@ import dev.likemagic.bluebreeze.BBCharacteristic
 import dev.likemagic.bluebreeze.BBCharacteristicProperty
 import dev.likemagic.bluebreeze.BBDevice
 import dev.likemagic.bluebreeze.BBDeviceConnectionStatus
+import dev.likemagic.bluebreeze.BBError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
 
+package dev.likemagic.bluebreeze
+
 import java.util.UUID
 
 class BBUUID(
@@ -52,7 +54,7 @@ class BBUUID(
         fun fromString(uuidString: String) = BBUUID(
             uuid = UUID.fromString(
                 if (uuidString.length == 4)
-                    "${UUID_PREFIX}${uuidString}${UUID_SUFFIX}"
+                    "$UUID_PREFIX${uuidString}$UUID_SUFFIX"
                 else
                     uuidString
             )

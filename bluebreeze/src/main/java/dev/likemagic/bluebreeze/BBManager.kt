@@ -5,8 +5,6 @@
 
 package dev.likemagic.bluebreeze
 
-import BBError
-import BBUUID
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
