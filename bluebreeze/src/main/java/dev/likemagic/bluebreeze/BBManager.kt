@@ -35,7 +35,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class BBManager(
-    private val context: Context,
+    context: Context,
 ) : BroadcastReceiver() {
     // region Permissions
 
@@ -60,13 +60,15 @@ class BBManager(
 
     private fun authorizationCheck(context: Context): BBAuthorization {
         // Check if all permissions are already granted
-        val granted = authorizationPermissions.map { ContextCompat.checkSelfPermission(context, it) }
+        val granted =
+            authorizationPermissions.map { ContextCompat.checkSelfPermission(context, it) }
         if (granted.all { it == PackageManager.PERMISSION_GRANTED }) {
             return BBAuthorization.authorized
         }
 
         // If some permissions have not been requested yet, we do not know the status
-        val requested = authorizationPermissions.map { context.sharedPreferences.getBoolean(it, false) }
+        val requested =
+            authorizationPermissions.map { context.sharedPreferences.getBoolean(it, false) }
         if (requested.any { !it }) {
             return BBAuthorization.unknown
         }
@@ -74,7 +76,10 @@ class BBManager(
         // Check if any permission has been denied once and needs a rationale
         if (authorizationPermissions
                 .any {
-                    (context is Activity) && ActivityCompat.shouldShowRequestPermissionRationale(context, it)
+                    (context is Activity) && ActivityCompat.shouldShowRequestPermissionRationale(
+                        context,
+                        it
+                    )
                 }
         ) {
             return BBAuthorization.showRationale
