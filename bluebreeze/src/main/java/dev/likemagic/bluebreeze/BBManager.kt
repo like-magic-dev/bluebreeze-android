@@ -351,9 +351,16 @@ class BBManager(
 
 
         private fun processScanResult(result: ScanResult) {
-            val devices = _devices.value.toMutableMap()
-            val device = devices[result.device.address] ?: BBDevice(context, result.device)
+            val device = devices.value[result.device.address] ?: BBDevice(context, result.device)
 
+            // Update the devices
+            if (devices.value[result.device.address] == null) {
+                _devices.value = devices.value.toMutableMap().apply {
+                    this[device.address] = device
+                }
+            }
+
+            // Compute scan result properties
             val advertisementData = result.scanRecord?.bytes?.let {
                 parseAdvertisedData(it)
             } ?: emptyMap()
@@ -363,6 +370,7 @@ class BBManager(
             else
                 result.isConnectable
 
+            // Send the scan result
             val scanResult = BBScanResult(
                 device = device,
                 rssi = result.rssi,
@@ -371,9 +379,6 @@ class BBManager(
                 connectable = connectable
             )
             _scanningResults.tryEmit(scanResult)
-
-            devices[result.device.address] = device
-            _devices.value = devices
         }
 
         override fun onScanResult(callbackType: Int, result: ScanResult) {
