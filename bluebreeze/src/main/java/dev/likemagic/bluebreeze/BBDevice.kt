@@ -13,23 +13,22 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
-import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
-import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
 import dev.likemagic.bluebreeze.operations.BBOperationConnect
 import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
+import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
+import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import java.nio.charset.Charset
 import java.util.Timer
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
-import kotlin.coroutines.suspendCoroutine
 import kotlin.concurrent.schedule
+import kotlin.coroutines.suspendCoroutine
 
 class BBDevice(
     val context: Context,
     val device: BluetoothDevice,
-): BluetoothGattCallback(), BBOperationQueue {
+) : BluetoothGattCallback(), BBOperationQueue {
     private var gatt: BluetoothGatt? = null
 
     // region Properties
@@ -38,33 +37,7 @@ class BBDevice(
         get() = device.address
 
     val name: String?
-        get() = device.name ?:
-            advertisementData[BBConstants.Advertisement.LOCAL_NAME]?.toString(Charset.defaultCharset()) ?:
-            advertisementData[BBConstants.Advertisement.LOCAL_NAME_SHORTENED]?.toString(Charset.defaultCharset()) ?:
-            advertisementData[BBConstants.Advertisement.BROADCAST_NAME]?.toString(Charset.defaultCharset())
-
-    var rssi: Int = 0
-
-    var advertisementData: Map<UByte, ByteArray> = emptyMap()
-
-    var advertisedServices: List<BBUUID> = emptyList()
-
-    var isConnectable: Boolean = false
-
-    val manufacturerData: ByteArray?
-        get() = advertisementData[BBConstants.Advertisement.MANUFACTURER]
-
-    val manufacturerId: Int?
-        get() {
-            val manufacturerData = manufacturerData ?: return null
-            return (manufacturerData[1].toUByte().toInt() shl 8) or (manufacturerData[0].toUByte().toInt())
-        }
-
-    val manufacturerName: String?
-        get() {
-            val manufacturerId = manufacturerId ?: return null
-            return BBConstants.Manufacturer.knownIds[manufacturerId]
-        }
+        get() = device.name
 
     // endregion
 
@@ -256,7 +229,12 @@ class BBDevice(
         value: ByteArray,
         status: Int
     ) {
-        characteristic(characteristic.uuid)?.onCharacteristicRead(gatt, characteristic, value, status)
+        characteristic(characteristic.uuid)?.onCharacteristicRead(
+            gatt,
+            characteristic,
+            value,
+            status
+        )
 
         operationCurrent?.onCharacteristicRead(gatt, characteristic, value, status)
         operationCheck()

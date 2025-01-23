@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import dev.likemagic.bluebreeze.BBAuthorization
 import dev.likemagic.bluebreeze.BBDevice
 import dev.likemagic.bluebreeze.BBManager
+import dev.likemagic.bluebreeze.BBScanResult
 import dev.likemagic.bluebreeze.BBState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,16 +42,16 @@ class MainViewModel(
         initialValue = false,
     )
 
-    private val _devices = MutableStateFlow<Map<String, BBDevice>>(emptyMap())
-    val devices: StateFlow<Map<String, BBDevice>> get() = _devices
+    private val _scanningResults = MutableStateFlow<Map<String, BBScanResult>>(emptyMap())
+    val scanningResults: StateFlow<Map<String, BBScanResult>> get() = _scanningResults
 
     init {
         viewModelScope.launch {
-            manager.scanningDevices
-                .collect { device ->
-                    val result = _devices.value.toMutableMap()
-                    result[device.address] = device
-                    _devices.value = result
+            manager.scanningResults
+                .collect { scanResult ->
+                    _scanningResults.value = scanningResults.value.toMutableMap().apply {
+                        this[scanResult.address] = scanResult
+                    }
                 }
         }
     }

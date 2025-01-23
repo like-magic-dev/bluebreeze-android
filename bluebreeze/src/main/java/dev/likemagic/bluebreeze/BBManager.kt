@@ -216,11 +216,11 @@ class BBManager(
     private val _scanningEnabled = MutableStateFlow(false)
     val scanningEnabled: StateFlow<Boolean> get() = _scanningEnabled
 
-    private val _scanningDevices = MutableSharedFlow<BBDevice>(
+    private val _scanningResults = MutableSharedFlow<BBScanResult>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
-    val scanningDevices: SharedFlow<BBDevice> get() = _scanningDevices
+    val scanningResults: SharedFlow<BBScanResult> get() = _scanningResults
 
     private val scanningTimes: MutableList<Long> = ArrayList()
 
@@ -352,24 +352,25 @@ class BBManager(
 
         private fun processScanResult(result: ScanResult) {
             val devices = _devices.value.toMutableMap()
-
             val device = devices[result.device.address] ?: BBDevice(context, result.device)
-            device.run {
-                rssi = result.rssi
 
-                advertisementData = result.scanRecord?.bytes?.let {
-                    parseAdvertisedData(it)
-                } ?: emptyMap()
+            val advertisementData = result.scanRecord?.bytes?.let {
+                parseAdvertisedData(it)
+            } ?: emptyMap()
 
-                advertisedServices = parseAdvertisedServices(advertisementData)
+            val connectable = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+                true
+            else
+                result.isConnectable
 
-                isConnectable = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
-                    true
-                else
-                    result.isConnectable
-            }
-
-            _scanningDevices.tryEmit(device)
+            val scanResult = BBScanResult(
+                device = device,
+                rssi = result.rssi,
+                advertisementData = advertisementData,
+                advertisedServices = parseAdvertisedServices(advertisementData),
+                connectable = connectable
+            )
+            _scanningResults.tryEmit(scanResult)
 
             devices[result.device.address] = device
             _devices.value = devices

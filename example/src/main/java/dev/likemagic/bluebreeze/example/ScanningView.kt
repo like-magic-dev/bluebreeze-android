@@ -37,7 +37,7 @@ fun ScanningView(
     val context = navController.context
 
     val scanningEnabled = viewModel.scanningEnabled.collectAsStateWithLifecycle()
-    val devices = viewModel.devices.collectAsStateWithLifecycle()
+    val scanningResults = viewModel.scanningResults.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -72,7 +72,7 @@ fun ScanningView(
             horizontalAlignment = Alignment.Start
         ) {
             items(
-                devices.value.values.toList(),
+                scanningResults.value.values.toList(),
                 key = { device -> device.hashCode() }
             ) { device ->
                 Card(
