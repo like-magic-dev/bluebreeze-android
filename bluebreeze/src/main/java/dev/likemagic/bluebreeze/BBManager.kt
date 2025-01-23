@@ -29,9 +29,10 @@ import android.os.ParcelUuid
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -217,8 +218,11 @@ class BBManager(
     private val _scanningEnabled = MutableStateFlow(false)
     val scanningEnabled: StateFlow<Boolean> get() = _scanningEnabled
 
-    private val _scanningDevices = MutableSharedFlow<BBDevice>()
-    val scanningDevices: Flow<BBDevice> get() = _scanningDevices
+    private val _scanningDevices = MutableSharedFlow<BBDevice>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val scanningDevices: SharedFlow<BBDevice> get() = _scanningDevices
 
     private val scanningTimes: MutableList<Long> = ArrayList()
 
