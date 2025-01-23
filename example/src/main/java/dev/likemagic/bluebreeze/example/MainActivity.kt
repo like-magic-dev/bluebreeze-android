@@ -5,7 +5,6 @@
 
 package dev.likemagic.bluebreeze.example
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,16 +19,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import dev.likemagic.bluebreeze.BBManager
 import dev.likemagic.bluebreeze.example.ui.theme.BluebreezeTheme
 
 class MainActivity : ComponentActivity() {
-    private lateinit var manager: BBManager
+    private lateinit var viewModel: MainViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        manager = BBManager(this)
+        viewModel = MainViewModel(this)
 
         enableEdgeToEdge()
         setContent {
@@ -37,10 +35,9 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
-                )  {
+                ) {
                     NavigationStack(
-                        context = this,
-                        manager = manager,
+                        viewModel = viewModel,
                     )
                 }
             }
@@ -49,14 +46,13 @@ class MainActivity : ComponentActivity() {
 }
 
 sealed class Route(val route: String) {
-    object Home: Route("home")
-    object Device: Route("device")
+    object Home : Route("home")
+    object Device : Route("device")
 }
 
 @Composable
 fun NavigationStack(
-    context: Context,
-    manager: BBManager,
+    viewModel: MainViewModel,
 ) {
     val navController = rememberNavController()
 
@@ -67,7 +63,7 @@ fun NavigationStack(
         composable(route = Route.Home.route) {
             HomeView(
                 navController = navController,
-                manager = manager,
+                viewModel = viewModel,
             )
         }
         composable(
@@ -80,7 +76,7 @@ fun NavigationStack(
             )
         ) {
             val deviceAddress = it.arguments?.getString("deviceAddress") ?: return@composable
-            val device = manager.devices.value[deviceAddress] ?: return@composable
+            val device = viewModel.manager.devices.value[deviceAddress] ?: return@composable
 
             DeviceView(
                 navController = navController,

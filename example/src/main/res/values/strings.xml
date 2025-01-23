@@ -8,9 +8,9 @@
     <string name="show_rationale_popup">Show rationale popup</string>
     <string name="open_app_settings">Open app settings</string>
     <string name="bluetooth_offline">Bluetooth offline</string>
-    <string name="stop_scanning">Stop scanning</string>
-    <string name="start_scanning">Start scanning</string>
-    <string name="ble_scanning">BLE Scanning</string>
+    <string name="stop_scan">Stop scan</string>
+    <string name="start_scan">Start scan</string>
+    <string name="ble_scan">BLE Scanning</string>
     <string name="disconnect">Disconnect</string>
     <string name="connect">Connect</string>
     <string name="write_characteristic">Write characteristic</string>

@@ -27,37 +27,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import dev.likemagic.bluebreeze.BBManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanningView(
     navController: NavController,
-    manager: BBManager,
+    viewModel: MainViewModel,
 ) {
     val context = navController.context
 
-    val scanningEnabled = manager.scanningEnabled.collectAsStateWithLifecycle()
-    val devices = manager.devices.collectAsStateWithLifecycle()
+    val scanEnabled = viewModel.scanEnabled.collectAsStateWithLifecycle()
+    val scanResults = viewModel.scanResults.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(stringResource(R.string.ble_scanning))
+                    Text(stringResource(R.string.ble_scan))
                 },
                 actions = {
-                    if (scanningEnabled.value) {
+                    if (scanEnabled.value) {
                         TextButton({
-                            manager.scanningStop(context)
+                            viewModel.manager.scanStop(context)
                         }) {
-                            Text(stringResource(R.string.stop_scanning).uppercase())
+                            Text(stringResource(R.string.stop_scan).uppercase())
                         }
                     } else {
                         TextButton({
-                            manager.scanningStart(context)
+                            viewModel.manager.scanStart(context)
                         }) {
-                            Text(stringResource(R.string.start_scanning).uppercase())
+                            Text(stringResource(R.string.start_scan).uppercase())
                         }
                     }
                 },
@@ -73,8 +72,8 @@ fun ScanningView(
             horizontalAlignment = Alignment.Start
         ) {
             items(
-                devices.value.values.toList(),
-                key = { device -> device.address }
+                scanResults.value.values.toList(),
+                key = { device -> device.hashCode() }
             ) { device ->
                 Card(
                     modifier = Modifier

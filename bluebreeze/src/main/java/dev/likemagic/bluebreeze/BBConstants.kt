@@ -5,8 +5,6 @@
 
 package dev.likemagic.bluebreeze
 
-import BBUUID
-
 object BBConstants {
     object UUID {
         val cccd = BBUUID.fromString("2902").uuid

@@ -5,8 +5,6 @@
 
 package dev.likemagic.bluebreeze
 
-import BBError
-import BBUUID
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
@@ -29,13 +27,16 @@ import android.os.ParcelUuid
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class BBManager(
-    private val context: Context,
+    context: Context,
 ) : BroadcastReceiver() {
     // region Permissions
 
@@ -60,13 +61,15 @@ class BBManager(
 
     private fun authorizationCheck(context: Context): BBAuthorization {
         // Check if all permissions are already granted
-        val granted = authorizationPermissions.map { ContextCompat.checkSelfPermission(context, it) }
+        val granted =
+            authorizationPermissions.map { ContextCompat.checkSelfPermission(context, it) }
         if (granted.all { it == PackageManager.PERMISSION_GRANTED }) {
             return BBAuthorization.authorized
         }
 
         // If some permissions have not been requested yet, we do not know the status
-        val requested = authorizationPermissions.map { context.sharedPreferences.getBoolean(it, false) }
+        val requested =
+            authorizationPermissions.map { context.sharedPreferences.getBoolean(it, false) }
         if (requested.any { !it }) {
             return BBAuthorization.unknown
         }
@@ -74,7 +77,10 @@ class BBManager(
         // Check if any permission has been denied once and needs a rationale
         if (authorizationPermissions
                 .any {
-                    (context is Activity) && ActivityCompat.shouldShowRequestPermissionRationale(context, it)
+                    (context is Activity) && ActivityCompat.shouldShowRequestPermissionRationale(
+                        context,
+                        it
+                    )
                 }
         ) {
             return BBAuthorization.showRationale
@@ -205,15 +211,24 @@ class BBManager(
 
     // end region
 
-    // region Scanning
+    // region Scan
 
-    private val _scanningEnabled = MutableStateFlow(false)
-    val scanningEnabled: StateFlow<Boolean> get() = _scanningEnabled
+    private val _scanEnabled = MutableStateFlow(false)
+    val scanEnabled: StateFlow<Boolean> get() = _scanEnabled
 
-    private val scanningTimes: MutableList<Long> = ArrayList()
+    private val _scanResults = MutableSharedFlow<BBScanResult>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val scanResults: SharedFlow<BBScanResult> get() = _scanResults
 
-    fun scanningStart(context: Context, serviceUUIDs: List<BBUUID> = emptyList()) {
-        if (scanningEnabled.value) {
+    private val scanTimes: MutableList<Long> = ArrayList()
+
+    fun scanStart(
+        context: Context,
+        serviceUUIDs: List<BBUUID> = emptyList()
+    ) {
+        if (scanEnabled.value) {
             return
         }
 
@@ -236,10 +251,10 @@ class BBManager(
         // When scanning more than 5 times in 30 seconds, the system will block our app from scanning.
         // We need to catch this condition and prevent calling *startScan* below.
         val currentTime = System.currentTimeMillis()
-        if (scanningTimes.size < 5) {
-            scanningTimes.add(currentTime)
+        if (scanTimes.size < 5) {
+            scanTimes.add(currentTime)
         } else {
-            val deltaTime = (currentTime - scanningTimes[0])
+            val deltaTime = (currentTime - scanTimes[0])
 
             // We throw an exception so that the app code can restart scanning after the specified time
             if (deltaTime < 30000) {
@@ -247,24 +262,24 @@ class BBManager(
                 throw BBError.scan(timeToWait)
             }
 
-            scanningTimes.removeAt(0)
-            scanningTimes.add(currentTime)
+            scanTimes.removeAt(0)
+            scanTimes.add(currentTime)
         }
 
-        context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanningCallback)
-        _scanningEnabled.value = true
+        context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+        _scanEnabled.value = true
     }
 
-    fun scanningStop(context: Context) {
-        if (!scanningEnabled.value) {
+    fun scanStop(context: Context) {
+        if (!scanEnabled.value) {
             return
         }
 
-        context.bluetoothLeScanner?.stopScan(scanningCallback)
-        _scanningEnabled.value = false
+        context.bluetoothLeScanner?.stopScan(scanCallback)
+        _scanEnabled.value = false
     }
 
-    private val scanningCallback: ScanCallback = object : ScanCallback() {
+    private val scanCallback: ScanCallback = object : ScanCallback() {
         private fun parseAdvertisedData(advertisedData: ByteArray): Map<UByte, ByteArray> {
             val result: MutableMap<UByte, ByteArray> = mutableMapOf()
 
@@ -305,7 +320,8 @@ class BBManager(
                     BBConstants.Advertisement.UUIDS_16_BIT_COMPLETE ->
                         while (buffer.remaining() >= 2) {
                             val bytes = (0 until 2).map { buffer.get() }
-                            val uuidShort = bytes.reversed().joinToString(separator = "") { it.hexString }
+                            val uuidShort =
+                                bytes.reversed().joinToString(separator = "") { it.hexString }
                             uuids.add(BBUUID.fromString(uuidShort))
                         }
 
@@ -314,11 +330,16 @@ class BBManager(
                         while (buffer.remaining() >= 16) {
                             val bytes = (0 until 16).map { buffer.get() }
                             val uuid = listOf(
-                                bytes.subList(12, 16).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(10, 12).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(8, 10).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(6, 8).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(0, 6).reversed().joinToString(separator = "") { it.hexString },
+                                bytes.subList(12, 16).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(10, 12).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(8, 10).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(6, 8).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(0, 6).reversed()
+                                    .joinToString(separator = "") { it.hexString },
                             ).joinToString(separator = "-")
                             uuids.add(BBUUID.fromString(uuid))
                         }
@@ -330,25 +351,34 @@ class BBManager(
 
 
         private fun processScanResult(result: ScanResult) {
-            val devices = _devices.value.toMutableMap()
-            devices[result.device.address] = devices[result.device.address] ?: BBDevice(context, result.device)
+            val device = devices.value[result.device.address] ?: BBDevice(context, result.device)
 
-            devices[result.device.address]?.run {
-                rssi = result.rssi
-
-                advertisementData = result.scanRecord?.bytes?.let {
-                    parseAdvertisedData(it)
-                } ?: emptyMap()
-
-                advertisedServices = parseAdvertisedServices(advertisementData)
-
-                isConnectable = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
-                    true
-                else
-                    result.isConnectable
+            // Update the devices
+            if (devices.value[result.device.address] == null) {
+                _devices.value = devices.value.toMutableMap().apply {
+                    this[device.address] = device
+                }
             }
 
-            _devices.value = devices
+            // Compute scan result properties
+            val advertisementData = result.scanRecord?.bytes?.let {
+                parseAdvertisedData(it)
+            } ?: emptyMap()
+
+            val connectable = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+                true
+            else
+                result.isConnectable
+
+            // Send the scan result
+            val scanResult = BBScanResult(
+                device = device,
+                rssi = result.rssi,
+                advertisementData = advertisementData,
+                advertisedServices = parseAdvertisedServices(advertisementData),
+                connectable = connectable
+            )
+            _scanResults.tryEmit(scanResult)
         }
 
         override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -365,7 +395,7 @@ class BBManager(
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            _scanningEnabled.value = false
+            _scanEnabled.value = false
         }
     }
 
@@ -393,9 +423,11 @@ class BBManager(
                         BluetoothAdapter.STATE_OFF -> {
                             _state.value = BBState.poweredOff
                         }
+
                         BluetoothAdapter.STATE_ON -> {
                             _state.value = BBState.poweredOn
                         }
+
                         BluetoothAdapter.STATE_TURNING_ON -> {}
                         BluetoothAdapter.STATE_TURNING_OFF -> {}
                     }
