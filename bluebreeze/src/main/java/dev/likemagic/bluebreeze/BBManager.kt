@@ -244,7 +244,7 @@ class BBManager(
 
         val scanFilters = serviceUUIDs?.map {
             ScanFilter.Builder()
-                .setServiceUuid(ParcelUuid.fromString(it.toString()))
+                .setServiceUuid(it.parcelUUID)
                 .build()
         }
 
