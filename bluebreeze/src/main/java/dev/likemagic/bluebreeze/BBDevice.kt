@@ -192,6 +192,38 @@ class BBDevice(
         operationCheck()
     }
 
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in Java")
+    override fun onDescriptorRead(
+        gatt: BluetoothGatt?,
+        descriptor: BluetoothGattDescriptor?,
+        status: Int
+    ) {
+        gatt ?: return
+        descriptor ?: return
+
+        characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(gatt, descriptor, status)
+
+        operationCurrent?.onDescriptorRead(gatt, descriptor, status)
+        operationCheck()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    override fun onDescriptorRead(
+        gatt: BluetoothGatt,
+        descriptor: BluetoothGattDescriptor,
+        status: Int,
+        value: ByteArray
+    ) {
+        gatt ?: return
+        descriptor ?: return
+
+        characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(gatt, descriptor, status, value)
+
+        operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
+        operationCheck()
+    }
+
     override fun onDescriptorWrite(
         gatt: BluetoothGatt?,
         descriptor: BluetoothGattDescriptor?,
