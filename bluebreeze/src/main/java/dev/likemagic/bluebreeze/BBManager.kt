@@ -29,6 +29,8 @@ import android.os.ParcelUuid
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
@@ -215,9 +217,15 @@ class BBManager(
     private val _scanningEnabled = MutableStateFlow(false)
     val scanningEnabled: StateFlow<Boolean> get() = _scanningEnabled
 
+    private val _scanningDevices = MutableSharedFlow<BBDevice>()
+    val scanningDevices: Flow<BBDevice> get() = _scanningDevices
+
     private val scanningTimes: MutableList<Long> = ArrayList()
 
-    fun scanningStart(context: Context, serviceUUIDs: List<BBUUID> = emptyList()) {
+    fun scanningStart(
+        context: Context,
+        serviceUUIDs: List<BBUUID> = emptyList()
+    ) {
         if (scanningEnabled.value) {
             return
         }
@@ -310,7 +318,8 @@ class BBManager(
                     BBConstants.Advertisement.UUIDS_16_BIT_COMPLETE ->
                         while (buffer.remaining() >= 2) {
                             val bytes = (0 until 2).map { buffer.get() }
-                            val uuidShort = bytes.reversed().joinToString(separator = "") { it.hexString }
+                            val uuidShort =
+                                bytes.reversed().joinToString(separator = "") { it.hexString }
                             uuids.add(BBUUID.fromString(uuidShort))
                         }
 
@@ -319,11 +328,16 @@ class BBManager(
                         while (buffer.remaining() >= 16) {
                             val bytes = (0 until 16).map { buffer.get() }
                             val uuid = listOf(
-                                bytes.subList(12, 16).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(10, 12).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(8, 10).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(6, 8).reversed().joinToString(separator = "") { it.hexString },
-                                bytes.subList(0, 6).reversed().joinToString(separator = "") { it.hexString },
+                                bytes.subList(12, 16).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(10, 12).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(8, 10).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(6, 8).reversed()
+                                    .joinToString(separator = "") { it.hexString },
+                                bytes.subList(0, 6).reversed()
+                                    .joinToString(separator = "") { it.hexString },
                             ).joinToString(separator = "-")
                             uuids.add(BBUUID.fromString(uuid))
                         }
@@ -336,9 +350,9 @@ class BBManager(
 
         private fun processScanResult(result: ScanResult) {
             val devices = _devices.value.toMutableMap()
-            devices[result.device.address] = devices[result.device.address] ?: BBDevice(context, result.device)
 
-            devices[result.device.address]?.run {
+            val device = devices[result.device.address] ?: BBDevice(context, result.device)
+            device.run {
                 rssi = result.rssi
 
                 advertisementData = result.scanRecord?.bytes?.let {
@@ -353,6 +367,9 @@ class BBManager(
                     result.isConnectable
             }
 
+            _scanningDevices.tryEmit(device)
+
+            devices[result.device.address] = device
             _devices.value = devices
         }
 
@@ -398,9 +415,11 @@ class BBManager(
                         BluetoothAdapter.STATE_OFF -> {
                             _state.value = BBState.poweredOff
                         }
+
                         BluetoothAdapter.STATE_ON -> {
                             _state.value = BBState.poweredOn
                         }
+
                         BluetoothAdapter.STATE_TURNING_ON -> {}
                         BluetoothAdapter.STATE_TURNING_OFF -> {}
                     }
