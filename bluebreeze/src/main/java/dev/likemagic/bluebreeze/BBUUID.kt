@@ -5,6 +5,7 @@
 
 package dev.likemagic.bluebreeze
 
+import android.os.ParcelUuid
 import java.util.UUID
 
 class BBUUID(
@@ -41,6 +42,13 @@ class BBUUID(
             result
         }
     }
+
+    // endregion
+
+    // region Parcel UUID
+
+    val parcelUUID: ParcelUuid
+        get() = ParcelUuid(uuid)
 
     // endregion
 

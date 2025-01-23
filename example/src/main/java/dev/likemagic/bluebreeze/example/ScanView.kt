@@ -30,7 +30,7 @@ import androidx.navigation.NavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScanningView(
+fun ScanView(
     navController: NavController,
     viewModel: MainViewModel,
 ) {
