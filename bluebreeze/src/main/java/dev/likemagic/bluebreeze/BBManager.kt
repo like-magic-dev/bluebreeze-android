@@ -226,7 +226,7 @@ class BBManager(
 
     fun scanStart(
         context: Context,
-        serviceUUIDs: List<BBUUID> = emptyList()
+        serviceUUIDs: List<BBUUID>? = null
     ) {
         if (scanEnabled.value) {
             return
@@ -242,7 +242,7 @@ class BBManager(
         }
         val scanSettings = scanSettingsBuilder.build()
 
-        val scanFilters = serviceUUIDs.map {
+        val scanFilters = serviceUUIDs?.map {
             ScanFilter.Builder()
                 .setServiceUuid(ParcelUuid.fromString(it.toString()))
                 .build()
