@@ -162,6 +162,9 @@ class BBDevice(
             }
 
             BluetoothGatt.STATE_DISCONNECTED -> {
+                this@BBDevice.gatt = null
+                gatt.close()
+
                 _connectionStatus.value = BBDeviceConnectionStatus.disconnected
                 _mtu.value = BBConstants.DEFAULT_MTU
                 _services.value = emptyList()
