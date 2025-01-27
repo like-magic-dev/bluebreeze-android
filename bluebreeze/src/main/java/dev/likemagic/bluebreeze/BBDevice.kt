@@ -17,9 +17,12 @@ import dev.likemagic.bluebreeze.operations.BBOperationConnect
 import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
 import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.util.Timer
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
@@ -152,34 +155,49 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        services.value.forEach { service ->
-            service.characteristics.forEach { characteristic ->
-                characteristic.onConnectionStateChange(gatt, status, newState)
-            }
-        }
-
-        operationCurrent?.onConnectionStateChange(gatt, status, newState)
-
-        when (newState) {
-            BluetoothGatt.STATE_CONNECTED -> {
-                this@BBDevice.gatt = gatt
-                _connectionStatus.value = BBDeviceConnectionStatus.connected
+        CoroutineScope(Dispatchers.Main).launch {
+            services.value.forEach { service ->
+                service.characteristics.forEach { characteristic ->
+                    characteristic.onConnectionStateChange(gatt, status, newState)
+                }
             }
 
-            BluetoothGatt.STATE_DISCONNECTED -> {
-                this@BBDevice.gatt = null
-                gatt.close()
+            // The STATE_DISCONNECTED is reported before the devices is actually disconnected at lower levels of the stack
+            // For further information look for "eatt_impl.h" callbacks in the ADB log
+            // The magic number below is just an educated guess of the timeout in the stack source
+            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                delay(1500L)
+            }
+
+            when (newState) {
+                BluetoothGatt.STATE_CONNECTED -> {
+                    this@BBDevice.gatt = gatt
+                    _connectionStatus.value = BBDeviceConnectionStatus.connected
+                }
+
+                BluetoothGatt.STATE_DISCONNECTED -> {
+                    this@BBDevice.gatt = null
+                    gatt.close()
+
+                    _connectionStatus.value = BBDeviceConnectionStatus.disconnected
+
+                    _mtu.value = BBConstants.DEFAULT_MTU
+                    _services.value = emptyList()
+                }
+            }
+
+            operationCurrent?.onConnectionStateChange(gatt, status, newState)
+
+            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                operationCurrent?.cancel()
+                operationCurrent = null
 
                 operationQueue.forEach { it.cancel() }
                 operationQueue.clear()
-
-                _connectionStatus.value = BBDeviceConnectionStatus.disconnected
-                _mtu.value = BBConstants.DEFAULT_MTU
-                _services.value = emptyList()
             }
-        }
 
-        operationCheck()
+            operationCheck()
+        }
     }
 
     override fun onServicesDiscovered(
