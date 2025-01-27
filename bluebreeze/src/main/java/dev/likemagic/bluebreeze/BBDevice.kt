@@ -83,6 +83,11 @@ class BBDevice(
     }
 
     suspend fun disconnect() {
+        operationCurrent?.cancel()
+
+        operationQueue.forEach { it.cancel() }
+        operationQueue.clear()
+
         return operationEnqueue(
             BBOperationDisconnect()
         )
