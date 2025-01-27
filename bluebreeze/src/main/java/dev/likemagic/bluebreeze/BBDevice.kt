@@ -165,6 +165,9 @@ class BBDevice(
                 this@BBDevice.gatt = null
                 gatt.close()
 
+                operationQueue.forEach { it.cancel() }
+                operationQueue.clear()
+
                 _connectionStatus.value = BBDeviceConnectionStatus.disconnected
                 _mtu.value = BBConstants.DEFAULT_MTU
                 _services.value = emptyList()
