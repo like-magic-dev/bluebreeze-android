@@ -28,17 +28,32 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
     var isComplete = false
 
     fun setSuccess(value: T) {
-        continuation?.resumeWith(Result.success(value))
+        try {
+            continuation?.resumeWith(Result.success(value))
+        } catch (e: IllegalStateException) {
+            // This can happen if an operation has already completed
+        }
+
         isComplete = true
     }
 
     fun setError(error: Throwable) {
-        continuation?.resumeWith(Result.failure(error))
+        try {
+            continuation?.resumeWith(Result.failure(error))
+        } catch (e: IllegalStateException) {
+            // This can happen if an operation has already completed
+        }
+
         isComplete = true
     }
 
     fun cancel() {
-        continuation?.resumeWith(Result.failure(BBError.operationCancelled()))
+        try {
+            continuation?.resumeWith(Result.failure(BBError.operationCancelled()))
+        } catch (e: IllegalStateException) {
+            // This can happen if an operation has already completed
+        }
+
         isComplete = true
     }
 

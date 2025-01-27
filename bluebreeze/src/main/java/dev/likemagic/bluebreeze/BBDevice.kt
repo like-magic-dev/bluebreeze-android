@@ -17,8 +17,12 @@ import dev.likemagic.bluebreeze.operations.BBOperationConnect
 import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
 import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.util.Timer
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
@@ -65,12 +69,28 @@ class BBDevice(
     // region Operations
 
     suspend fun connect() {
-        return operationEnqueue(
-            BBOperationConnect(this)
-        )
+        for (i in 0..2) {
+            try {
+                delay(i * 1000L)
+                return operationEnqueue(
+                    BBOperationConnect(this)
+                )
+            } catch (e: BBErrorGatt) {
+                if (e.code == BBErrorGatt.GATT_ERROR) {
+                    // We catch the GATT_ERROR (133) that occurs at times when connecting
+                    // and retry the connection at increasingly large time intervals
+                    continue
+                }
+            }
+        }
     }
 
     suspend fun disconnect() {
+        operationCurrent?.cancel()
+
+        operationQueue.forEach { it.cancel() }
+        operationQueue.clear()
+
         return operationEnqueue(
             BBOperationDisconnect()
         )
@@ -135,28 +155,49 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        services.value.forEach { service ->
-            service.characteristics.forEach { characteristic ->
-                characteristic.onConnectionStateChange(gatt, status, newState)
+        CoroutineScope(Dispatchers.Main).launch {
+            services.value.forEach { service ->
+                service.characteristics.forEach { characteristic ->
+                    characteristic.onConnectionStateChange(gatt, status, newState)
+                }
             }
+
+            // The STATE_DISCONNECTED is reported before the devices is actually disconnected at lower levels of the stack
+            // For further information look for "eatt_impl.h" callbacks in the ADB log
+            // The magic number below is just an educated guess of the timeout in the stack source
+            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                delay(1500L)
+            }
+
+            when (newState) {
+                BluetoothGatt.STATE_CONNECTED -> {
+                    this@BBDevice.gatt = gatt
+                    _connectionStatus.value = BBDeviceConnectionStatus.connected
+                }
+
+                BluetoothGatt.STATE_DISCONNECTED -> {
+                    this@BBDevice.gatt = null
+                    gatt.close()
+
+                    _connectionStatus.value = BBDeviceConnectionStatus.disconnected
+
+                    _mtu.value = BBConstants.DEFAULT_MTU
+                    _services.value = emptyList()
+                }
+            }
+
+            operationCurrent?.onConnectionStateChange(gatt, status, newState)
+
+            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                operationCurrent?.cancel()
+                operationCurrent = null
+
+                operationQueue.forEach { it.cancel() }
+                operationQueue.clear()
+            }
+
+            operationCheck()
         }
-
-        operationCurrent?.onConnectionStateChange(gatt, status, newState)
-
-        when (newState) {
-            BluetoothGatt.STATE_CONNECTED -> {
-                this@BBDevice.gatt = gatt
-                _connectionStatus.value = BBDeviceConnectionStatus.connected
-            }
-
-            BluetoothGatt.STATE_DISCONNECTED -> {
-                _connectionStatus.value = BBDeviceConnectionStatus.disconnected
-                _mtu.value = BBConstants.DEFAULT_MTU
-                _services.value = emptyList()
-            }
-        }
-
-        operationCheck()
     }
 
     override fun onServicesDiscovered(
@@ -189,6 +230,38 @@ class BBDevice(
         gatt ?: return
 
         operationCurrent?.onMtuChanged(gatt, mtu, status)
+        operationCheck()
+    }
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in Java")
+    override fun onDescriptorRead(
+        gatt: BluetoothGatt?,
+        descriptor: BluetoothGattDescriptor?,
+        status: Int
+    ) {
+        gatt ?: return
+        descriptor ?: return
+
+        characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(gatt, descriptor, status)
+
+        operationCurrent?.onDescriptorRead(gatt, descriptor, status)
+        operationCheck()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    override fun onDescriptorRead(
+        gatt: BluetoothGatt,
+        descriptor: BluetoothGattDescriptor,
+        status: Int,
+        value: ByteArray
+    ) {
+        gatt ?: return
+        descriptor ?: return
+
+        characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(gatt, descriptor, status, value)
+
+        operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
         operationCheck()
     }
 

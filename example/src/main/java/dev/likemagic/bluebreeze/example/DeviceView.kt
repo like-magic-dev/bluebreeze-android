@@ -11,13 +11,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +57,8 @@ fun DeviceView(
     device: BBDevice,
 ) {
     val connectionStatus = device.connectionStatus.collectAsStateWithLifecycle()
+    var connectionOperation = remember { mutableStateOf(false) }
+
     val services = device.services.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -71,33 +76,54 @@ fun DeviceView(
                     }
                 },
                 actions = {
-                    when (connectionStatus.value) {
-                        BBDeviceConnectionStatus.connected -> {
-                            TextButton({
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    try {
-                                        device.disconnect()
-                                    } catch (e: BBError) {
-                                        // Ignore error
+                    if (connectionOperation.value) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .width(52.dp)
+                                .height(20.dp)
+                                .padding(horizontal = 16.dp)
+                        )
+                    } else {
+                        when (connectionStatus.value) {
+                            BBDeviceConnectionStatus.connected -> {
+                                TextButton({
+                                    connectionOperation.value = true
+
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        try {
+                                            device.disconnect()
+                                        } catch (e: BBError) {
+                                            // Ignore error
+                                        }
+
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            connectionOperation.value = false
+                                        }
                                     }
+                                }) {
+                                    Text(stringResource(R.string.disconnect).uppercase())
                                 }
-                            }) {
-                                Text(stringResource(R.string.disconnect).uppercase())
                             }
-                        }
-                        BBDeviceConnectionStatus.disconnected -> {
-                            TextButton({
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    try {
-                                        device.connect()
-                                        device.discoverServices()
-                                        device.requestMTU(255)
-                                    } catch (e: BBError) {
-                                        // Ignore error
+                            BBDeviceConnectionStatus.disconnected -> {
+                                TextButton({
+                                    connectionOperation.value = true
+
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        try {
+                                            device.connect()
+                                            device.discoverServices()
+                                            device.requestMTU(255)
+                                        } catch (e: BBError) {
+                                            // Ignore error
+                                        }
+
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            connectionOperation.value = false
+                                        }
                                     }
+                                }) {
+                                    Text(stringResource(R.string.connect).uppercase())
                                 }
-                            }) {
-                                Text(stringResource(R.string.connect).uppercase())
                             }
                         }
                     }

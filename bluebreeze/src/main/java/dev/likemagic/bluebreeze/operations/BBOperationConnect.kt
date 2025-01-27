@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.content.Context
+import android.os.Build
 import dev.likemagic.bluebreeze.BBError
 import dev.likemagic.bluebreeze.BBOperation
 
@@ -20,7 +21,11 @@ class BBOperationConnect(
         device: BluetoothDevice,
         gatt: BluetoothGatt?,
     ) {
-        device.connectGatt(context, false, gattCallback)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+        } else {
+            device.connectGatt(context, false, gattCallback)
+        }
     }
 
     override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {

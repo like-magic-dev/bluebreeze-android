@@ -235,12 +235,13 @@ class BBManager(
         /// !!! LOW POWER does not work on some devices, DO NOT CHANGE !!!
         val bluetoothScanMode = ScanSettings.SCAN_MODE_LOW_LATENCY
 
-        val scanSettingsBuilder = ScanSettings.Builder()
-        scanSettingsBuilder.setScanMode(bluetoothScanMode)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            scanSettingsBuilder.setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-        }
-        val scanSettings = scanSettingsBuilder.build()
+        val scanSettings = ScanSettings.Builder().apply {
+            setScanMode(bluetoothScanMode)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+            }
+        }.build()
 
         val scanFilters = serviceUUIDs?.map {
             ScanFilter.Builder()
