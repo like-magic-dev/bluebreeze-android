@@ -17,6 +17,7 @@ import dev.likemagic.bluebreeze.operations.BBOperationConnect
 import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
 import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Timer
@@ -65,9 +66,20 @@ class BBDevice(
     // region Operations
 
     suspend fun connect() {
-        return operationEnqueue(
-            BBOperationConnect(this)
-        )
+        for (i in 0..3) {
+            try {
+                delay(i * 500L)
+                return operationEnqueue(
+                    BBOperationConnect(this)
+                )
+            } catch (e: BBErrorGatt) {
+                if (e.code == BBErrorGatt.GATT_ERROR) {
+                    // We catch the GATT_ERROR (133) that occurs at times when connecting
+                    // and retry the connection at increasingly large time intervals
+                    continue
+                }
+            }
+        }
     }
 
     suspend fun disconnect() {
