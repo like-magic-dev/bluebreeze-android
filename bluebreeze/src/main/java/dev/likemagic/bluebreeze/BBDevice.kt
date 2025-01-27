@@ -66,9 +66,9 @@ class BBDevice(
     // region Operations
 
     suspend fun connect() {
-        for (i in 0..3) {
+        for (i in 0..2) {
             try {
-                delay(i * 500L)
+                delay(i * 1000L)
                 return operationEnqueue(
                     BBOperationConnect(this)
                 )
