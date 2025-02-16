@@ -44,9 +44,11 @@ android {
 dependencies {
     implementation(libs.jetbrains.kotlinx.coroutines.core)
     implementation(libs.appcompat.v7)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.runner)
-    androidTestImplementation(libs.espresso.core)
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.activity.ktx)
+//    testImplementation("junit:junit")
+//    androidTestImplementation("com.android.support.test:runner")
+//    androidTestImplementation("com.android.support.test.espresso:espresso-core")
 }
 
 afterEvaluate {

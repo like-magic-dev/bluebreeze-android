@@ -11,7 +11,7 @@
     <application>
         <activity
             android:name=".BBManager$BBPermissionRequestActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
             android:exported="true"
             />
     </application>
