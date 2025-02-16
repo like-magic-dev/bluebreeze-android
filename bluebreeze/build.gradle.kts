@@ -7,7 +7,7 @@ plugins {
     id("signing")
 }
 
-val currentVersion = "0.0.6"
+val currentVersion = "0.0.7"
 
 android {
     namespace = "dev.likemagic.bluebreeze"
@@ -44,9 +44,11 @@ android {
 dependencies {
     implementation(libs.jetbrains.kotlinx.coroutines.core)
     implementation(libs.appcompat.v7)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.runner)
-    androidTestImplementation(libs.espresso.core)
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.activity.ktx)
+//    testImplementation("junit:junit")
+//    androidTestImplementation("com.android.support.test:runner")
+//    androidTestImplementation("com.android.support.test.espresso:espresso-core")
 }
 
 afterEvaluate {
@@ -97,6 +99,10 @@ afterEvaluate {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+kotlin {
+    jvmToolchain(17)
 }

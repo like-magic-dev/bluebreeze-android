@@ -25,8 +25,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.ParcelUuid
 import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,7 +130,7 @@ class BBManager(
         context.startActivity(intent)
     }
 
-    class BBPermissionRequestActivity : Activity() {
+    class BBPermissionRequestActivity : AppCompatActivity() {
         companion object {
             const val KEY = "BBPermissionRequestActivity.key"
             const val GRANTED = "BBPermissionRequestActivity.granted"
@@ -135,29 +138,16 @@ class BBManager(
             const val DENIED = "BBPermissionRequestActivity.denied"
         }
 
-        override fun onCreate(savedInstanceState: Bundle?) {
-            super.onCreate(savedInstanceState)
-            if (savedInstanceState == null) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    intent.getStringArrayExtra(KEY) ?: emptyArray(),
-                    1
-                )
-            }
-        }
-
-        override fun onRequestPermissionsResult(
-            requestCode: Int,
-            permissions: Array<out String>,
-            grantResults: IntArray
-        ) {
-            val shouldShowRationale = permissions.map {
+        val permissionRequest = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { granted: Map<String, Boolean> ->
+            val shouldShowRationale = granted.keys.map {
                 ActivityCompat.shouldShowRequestPermissionRationale(this, it)
             }
 
             sendBroadcast(
                 Intent(
-                    if (grantResults.all { it == PackageManager.PERMISSION_GRANTED })
+                    if (granted.values.all { it })
                         GRANTED
                     else if (shouldShowRationale.any { it })
                         SHOW_RATIONALE
@@ -169,6 +159,13 @@ class BBManager(
             )
 
             finish()
+        }
+
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+            if (savedInstanceState == null) {
+                permissionRequest.launch(intent.getStringArrayExtra(KEY) ?: emptyArray())
+            }
         }
     }
 
