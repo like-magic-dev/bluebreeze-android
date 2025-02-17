@@ -111,6 +111,11 @@ class BBManager(
         // Start the hidden activity to request permissions
         val intent = Intent(context, BBPermissionRequestActivity::class.java)
         intent.putExtra(BBPermissionRequestActivity.KEY, authorizationPermissions)
+
+        if (context !is Activity) {
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
         context.startActivity(intent)
 
         // Save the requested permissions
