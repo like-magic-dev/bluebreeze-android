@@ -69,7 +69,7 @@ afterEvaluate {
 
             url = "https://likemagic.dev"
 
-            packaging = "jar" // jar is the default, but still set it to make it clear
+            packaging = "aar"
 
             // Your choosen license
             // Use https://choosealicense.com/ to decide, if you need help.
