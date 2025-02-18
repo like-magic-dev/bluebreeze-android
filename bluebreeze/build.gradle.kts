@@ -7,7 +7,7 @@ plugins {
     id("signing")
 }
 
-val currentVersion = "0.0.7"
+val currentVersion = "0.0.8"
 
 android {
     namespace = "dev.likemagic.bluebreeze"
@@ -69,7 +69,7 @@ afterEvaluate {
 
             url = "https://likemagic.dev"
 
-            packaging = "jar" // jar is the default, but still set it to make it clear
+            packaging = "aar"
 
             // Your choosen license
             // Use https://choosealicense.com/ to decide, if you need help.
