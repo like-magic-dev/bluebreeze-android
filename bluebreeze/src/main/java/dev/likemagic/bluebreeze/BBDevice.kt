@@ -162,13 +162,6 @@ class BBDevice(
                 }
             }
 
-            // The STATE_DISCONNECTED is reported before the devices is actually disconnected at lower levels of the stack
-            // For further information look for "eatt_impl.h" callbacks in the ADB log
-            // The magic number below is just an educated guess of the timeout in the stack source
-            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                delay(1500L)
-            }
-
             when (newState) {
                 BluetoothGatt.STATE_CONNECTED -> {
                     this@BBDevice.gatt = gatt
