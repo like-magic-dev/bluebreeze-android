@@ -119,11 +119,11 @@ class BBManager(
         context.startActivity(intent)
 
         // Save the requested permissions
-        val editor = context.sharedPreferences.edit()
-        authorizationPermissions.forEach {
-            editor.putBoolean(it, true)
+        context.sharedPreferences.edit {
+            authorizationPermissions.forEach {
+                putBoolean(it, true)
+            }
         }
-        editor.apply()
     }
 
     fun authorizationOpenSettings(context: Context) {
