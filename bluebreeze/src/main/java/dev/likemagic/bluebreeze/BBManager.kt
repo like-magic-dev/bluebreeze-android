@@ -23,27 +23,27 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.ParcelUuid
 import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
-import kotlinx.coroutines.channels.BufferOverflow
+import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import androidx.core.content.edit
+import kotlinx.coroutines.channels.BufferOverflow
 
 class BBManager(
     context: Context,
 ) : BroadcastReceiver() {
     // region Permissions
 
-    private val _authorizationStatus = MutableStateFlow(BBAuthorization.unknown)
+    private val _authorizationStatus = MutableSharedStateFlow(BBAuthorization.unknown)
     val authorizationStatus: StateFlow<BBAuthorization> get() = _authorizationStatus
 
     private val authorizationPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -59,7 +59,7 @@ class BBManager(
     }
 
     init {
-        _authorizationStatus.value = authorizationCheck(context)
+        _authorizationStatus.emit(authorizationCheck(context))
     }
 
     private fun authorizationCheck(context: Context): BBAuthorization {
@@ -119,11 +119,11 @@ class BBManager(
         context.startActivity(intent)
 
         // Save the requested permissions
-        val editor = context.sharedPreferences.edit()
-        authorizationPermissions.forEach {
-            editor.putBoolean(it, true)
+        context.sharedPreferences.edit {
+            authorizationPermissions.forEach {
+                putBoolean(it, true)
+            }
         }
-        editor.apply()
     }
 
     fun authorizationOpenSettings(context: Context) {
@@ -178,11 +178,11 @@ class BBManager(
 
     // region State
 
-    private val _state = MutableStateFlow(BBState.unknown)
+    private val _state = MutableSharedStateFlow(BBState.unknown)
     val state: StateFlow<BBState> get() = _state
 
     init {
-        _state.value = stateCheck(context)
+        _state.emit(stateCheck(context))
     }
 
     private fun stateCheck(context: Context): BBState {
@@ -208,18 +208,18 @@ class BBManager(
 
     // region Devices
 
-    private val _devices = MutableStateFlow<Map<String, BBDevice>>(mapOf())
+    private val _devices = MutableSharedStateFlow<Map<String, BBDevice>>(mapOf())
     val devices: StateFlow<Map<String, BBDevice>> get() = _devices
 
     // end region
 
     // region Scan
 
-    private val _scanEnabled = MutableStateFlow(false)
+    private val _scanEnabled = MutableSharedStateFlow(false)
     val scanEnabled: StateFlow<Boolean> get() = _scanEnabled
 
     private val _scanResults = MutableSharedFlow<BBScanResult>(
-        extraBufferCapacity = 1,
+        extraBufferCapacity = 16,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val scanResults: SharedFlow<BBScanResult> get() = _scanResults
@@ -270,7 +270,7 @@ class BBManager(
         }
 
         context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
-        _scanEnabled.value = true
+        _scanEnabled.emit(true)
     }
 
     fun scanStop(context: Context) {
@@ -279,7 +279,7 @@ class BBManager(
         }
 
         context.bluetoothLeScanner?.stopScan(scanCallback)
-        _scanEnabled.value = false
+        _scanEnabled.emit(false)
     }
 
     private val scanCallback: ScanCallback = object : ScanCallback() {
@@ -358,9 +358,11 @@ class BBManager(
 
             // Update the devices
             if (devices.value[result.device.address] == null) {
-                _devices.value = devices.value.toMutableMap().apply {
-                    this[device.address] = device
-                }
+                _devices.emit(
+                    devices.value.toMutableMap().apply {
+                        this[device.address] = device
+                    }
+                )
             }
 
             // Compute scan result properties
@@ -398,7 +400,7 @@ class BBManager(
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            _scanEnabled.value = false
+            _scanEnabled.emit(false)
         }
     }
 
@@ -410,25 +412,25 @@ class BBManager(
         intent?.let {
             when (intent.action) {
                 BBPermissionRequestActivity.GRANTED -> {
-                    _authorizationStatus.value = BBAuthorization.authorized
+                    _authorizationStatus.emit(BBAuthorization.authorized)
                 }
 
                 BBPermissionRequestActivity.SHOW_RATIONALE -> {
-                    _authorizationStatus.value = BBAuthorization.showRationale
+                    _authorizationStatus.emit(BBAuthorization.showRationale)
                 }
 
                 BBPermissionRequestActivity.DENIED -> {
-                    _authorizationStatus.value = BBAuthorization.denied
+                    _authorizationStatus.emit(BBAuthorization.denied)
                 }
 
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
                         BluetoothAdapter.STATE_OFF -> {
-                            _state.value = BBState.poweredOff
+                            _state.emit(BBState.poweredOff)
                         }
 
                         BluetoothAdapter.STATE_ON -> {
-                            _state.value = BBState.poweredOn
+                            _state.emit(BBState.poweredOn)
                         }
 
                         BluetoothAdapter.STATE_TURNING_ON -> {}

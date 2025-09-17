@@ -10,11 +10,11 @@ import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.os.Build
 import androidx.annotation.RequiresApi
+import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
 import dev.likemagic.bluebreeze.operations.BBOperationRead
 import dev.likemagic.bluebreeze.operations.BBOperationSubscribe
 import dev.likemagic.bluebreeze.operations.BBOperationUnsubscribe
 import dev.likemagic.bluebreeze.operations.BBOperationWrite
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class BBCharacteristic(
@@ -54,10 +54,10 @@ class BBCharacteristic(
 
     // region Observable properties
 
-    private val _data = MutableStateFlow(byteArrayOf())
+    private val _data = MutableSharedStateFlow(byteArrayOf())
     val data: StateFlow<ByteArray> get() = _data
 
-    private val _isNotifying = MutableStateFlow<Boolean>(false)
+    private val _isNotifying = MutableSharedStateFlow(false)
     val isNotifying: StateFlow<Boolean> get() = _isNotifying
 
     // endregion
@@ -81,7 +81,7 @@ class BBCharacteristic(
             BBOperationSubscribe(characteristic)
         )
 
-        _isNotifying.value = true
+        _isNotifying.emit(true)
     }
 
     suspend fun unsubscribe() {
@@ -89,7 +89,7 @@ class BBCharacteristic(
             BBOperationUnsubscribe(characteristic)
         )
 
-        _isNotifying.value = false
+        _isNotifying.emit(false)
     }
 
     // endregion
@@ -105,7 +105,7 @@ class BBCharacteristic(
 
         when (newState) {
             BluetoothGatt.STATE_DISCONNECTED -> {
-                _data.value = byteArrayOf()
+                _data.emit(byteArrayOf())
             }
         }
     }
@@ -120,7 +120,7 @@ class BBCharacteristic(
         gatt ?: return
         characteristic ?: return
 
-        _data.value = characteristic.value ?: byteArrayOf()
+        _data.emit(characteristic.value ?: byteArrayOf())
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -130,7 +130,7 @@ class BBCharacteristic(
         value: ByteArray,
         status: Int
     ) {
-        _data.value = value
+        _data.emit(value)
     }
 
     override fun onCharacteristicWrite(
@@ -151,7 +151,7 @@ class BBCharacteristic(
         gatt ?: return
         characteristic ?: return
 
-        _data.value = characteristic.value ?: byteArrayOf()
+        _data.emit(characteristic.value ?: byteArrayOf())
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -160,7 +160,7 @@ class BBCharacteristic(
         characteristic: BluetoothGattCharacteristic,
         value: ByteArray
     ) {
-        _data.value = value
+        _data.emit(value)
     }
 
     // endregion

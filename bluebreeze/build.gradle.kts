@@ -7,12 +7,12 @@ plugins {
     id("signing")
 }
 
-val currentVersion = "0.0.10"
+val currentVersion = "0.0.11"
 
 android {
     namespace = "dev.likemagic.bluebreeze"
     version = currentVersion
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 21
