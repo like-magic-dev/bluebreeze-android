@@ -13,6 +13,7 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
+import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
 import dev.likemagic.bluebreeze.operations.BBOperationConnect
 import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
@@ -20,7 +21,6 @@ import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Timer
@@ -47,21 +47,21 @@ class BBDevice(
 
     // region Services
 
-    private val _services = MutableStateFlow<List<BBService>>(emptyList())
+    private val _services = MutableSharedStateFlow(emptyList<BBService>())
     val services: StateFlow<List<BBService>> get() = _services
 
     // endregion
 
     // region Connection status
 
-    private val _connectionStatus = MutableStateFlow(BBDeviceConnectionStatus.disconnected)
+    private val _connectionStatus = MutableSharedStateFlow(BBDeviceConnectionStatus.disconnected)
     val connectionStatus: StateFlow<BBDeviceConnectionStatus> get() = _connectionStatus
 
     // endregion
 
     // region MTU
 
-    private val _mtu = MutableStateFlow(BBConstants.DEFAULT_MTU)
+    private val _mtu = MutableSharedStateFlow(BBConstants.DEFAULT_MTU)
     val mtu: StateFlow<Int> get() = _mtu
 
     // endregion
@@ -165,17 +165,16 @@ class BBDevice(
             when (newState) {
                 BluetoothGatt.STATE_CONNECTED -> {
                     this@BBDevice.gatt = gatt
-                    _connectionStatus.value = BBDeviceConnectionStatus.connected
+                    _connectionStatus.emit(BBDeviceConnectionStatus.connected)
                 }
 
                 BluetoothGatt.STATE_DISCONNECTED -> {
                     this@BBDevice.gatt = null
                     gatt.close()
 
-                    _connectionStatus.value = BBDeviceConnectionStatus.disconnected
-
-                    _mtu.value = BBConstants.DEFAULT_MTU
-                    _services.value = emptyList()
+                    _connectionStatus.emit(BBDeviceConnectionStatus.disconnected)
+                    _mtu.emit(BBConstants.DEFAULT_MTU)
+                    _services.emit(emptyList())
                 }
             }
 
@@ -199,17 +198,17 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        _services.value = gatt.services.map {
-            BBService(
-                uuid = BBUUID(uuid = it.uuid),
-                characteristics = it.characteristics.map {
-                    BBCharacteristic(
-                        characteristic = it,
-                        operationQueue = this,
-                    )
-                }
-            )
-        }
+        _services.emit(
+            gatt.services.map {
+                BBService(
+                    uuid = BBUUID(uuid = it.uuid),
+                    characteristics = it.characteristics.map {
+                        BBCharacteristic(
+                            characteristic = it,
+                            operationQueue = this,
+                        )
+                    })
+            })
 
         operationCurrent?.onServicesDiscovered(gatt, status)
         operationCheck()
@@ -249,10 +248,9 @@ class BBDevice(
         status: Int,
         value: ByteArray
     ) {
-        gatt ?: return
-        descriptor ?: return
-
-        characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(gatt, descriptor, status, value)
+        characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(
+            gatt, descriptor, status, value
+        )
 
         operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
         operationCheck()
