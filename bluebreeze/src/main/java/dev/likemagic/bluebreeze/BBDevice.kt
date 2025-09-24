@@ -26,6 +26,8 @@ import kotlinx.coroutines.launch
 import java.util.Timer
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
+import kotlin.collections.ArrayList
+import kotlin.collections.HashSet
 import kotlin.concurrent.schedule
 import kotlin.coroutines.suspendCoroutine
 
@@ -199,16 +201,20 @@ class BBDevice(
         gatt ?: return
 
         _services.emit(
-            gatt.services.map {
-                BBService(
-                    uuid = BBUUID(uuid = it.uuid),
-                    characteristics = it.characteristics.map {
-                        BBCharacteristic(
-                            characteristic = it,
-                            operationQueue = this,
-                        )
-                    })
-            })
+            gatt.services
+                .lastDistinctBy({ it.uuid })
+                .map { service ->
+                    BBService(
+                        uuid = BBUUID(uuid = service.uuid),
+                        characteristics = service.characteristics
+                            .lastDistinctBy({it.uuid})
+                            .map { characteristic ->
+                                BBCharacteristic(
+                                    characteristic = characteristic,
+                                    operationQueue = this,
+                                )
+                            })
+                })
 
         operationCurrent?.onServicesDiscovered(gatt, status)
         operationCheck()
@@ -359,3 +365,6 @@ fun BBDevice.characteristic(uuid: UUID): BBCharacteristic? {
 
     return null
 }
+
+public inline fun <T, K> Iterable<T>.lastDistinctBy(selector: (T) -> K): List<T> =
+    this.reversed().distinctBy(selector).reversed()
