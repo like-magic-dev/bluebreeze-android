@@ -7,7 +7,7 @@ plugins {
     id("signing")
 }
 
-val currentVersion = "0.0.12"
+val currentVersion = "0.0.13"
 
 android {
     namespace = "dev.likemagic.bluebreeze"
