@@ -119,15 +119,6 @@ class BBCharacteristic(
         _data.emit(value)
     }
 
-    override fun onCharacteristicWrite(
-        gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
-        status: Int
-    ) {
-        gatt ?: return
-        characteristic ?: return
-    }
-
     @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicChanged(
