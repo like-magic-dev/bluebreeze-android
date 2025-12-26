@@ -96,20 +96,6 @@ class BBCharacteristic(
 
     // region Bluetooth GATT callback
 
-    override fun onConnectionStateChange(
-        gatt: BluetoothGatt?,
-        status: Int,
-        newState: Int
-    ) {
-        gatt ?: return
-
-        when (newState) {
-            BluetoothGatt.STATE_DISCONNECTED -> {
-                _data.emit(byteArrayOf())
-            }
-        }
-    }
-
     @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicRead(
@@ -131,15 +117,6 @@ class BBCharacteristic(
         status: Int
     ) {
         _data.emit(value)
-    }
-
-    override fun onCharacteristicWrite(
-        gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
-        status: Int
-    ) {
-        gatt ?: return
-        characteristic ?: return
     }
 
     @Suppress("DEPRECATION")
