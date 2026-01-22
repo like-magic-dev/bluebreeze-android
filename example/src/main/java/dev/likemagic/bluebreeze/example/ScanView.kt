@@ -73,8 +73,8 @@ fun ScanView(
         ) {
             items(
                 scanResults.value.values.toList(),
-                key = { device -> device.hashCode() }
-            ) { device ->
+                key = { scanResult -> scanResult.hashCode() }
+            ) { scanResult ->
                 Card(
                     modifier = Modifier
                         .fillMaxSize()
@@ -83,7 +83,7 @@ fun ScanView(
                             vertical = 4.dp,
                         ),
                     onClick = {
-                        navController.navigate(route = Route.Device.route + "?deviceAddress=${device.address}")
+                        navController.navigate(route = Route.Device.route + "?deviceAddress=${scanResult.address}")
                     },
                 ) {
                     Row(
@@ -98,22 +98,26 @@ fun ScanView(
                     ) {
                         Column {
                             Text(
-                                device.name ?: device.address,
+                                scanResult.name ?: "-",
                                 style = MaterialTheme.typography.bodyLarge.merge(fontWeight = FontWeight.Bold),
                             )
                             Text(
-                                device.manufacturerName ?: "-",
+                                scanResult.address,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            if (device.advertisedServices.isNotEmpty()) {
+                            Text(
+                                scanResult.manufacturerName ?: "-",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            if (scanResult.advertisedServices.isNotEmpty()) {
                                 Text(
-                                    device.advertisedServices.joinToString(),
+                                    scanResult.advertisedServices.joinToString(),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
                         }
                         Text(
-                            device.rssi.toString(),
+                            scanResult.rssi.toString(),
                             style = MaterialTheme.typography.headlineSmall,
                         )
                     }
