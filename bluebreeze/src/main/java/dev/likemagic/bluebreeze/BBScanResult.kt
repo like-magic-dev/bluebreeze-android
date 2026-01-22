@@ -20,11 +20,10 @@ data class BBScanResult(
         get() = device.address
 
     val name: String?
-        get() = device.name ?: advertisementData[BBConstants.Advertisement.LOCAL_NAME]?.toString(
-            Charset.defaultCharset()
-        )
-        ?: advertisementData[BBConstants.Advertisement.LOCAL_NAME_SHORTENED]?.toString(Charset.defaultCharset())
-        ?: advertisementData[BBConstants.Advertisement.BROADCAST_NAME]?.toString(Charset.defaultCharset())
+        get() = advertisementData[BBConstants.Advertisement.LOCAL_NAME]?.toDefaultString()
+        ?: advertisementData[BBConstants.Advertisement.LOCAL_NAME_SHORTENED]?.toDefaultString()
+        ?: advertisementData[BBConstants.Advertisement.BROADCAST_NAME]?.toDefaultString()
+        ?: device.name
 
     val manufacturerData: ByteArray?
         get() = advertisementData[BBConstants.Advertisement.MANUFACTURER]
@@ -43,4 +42,6 @@ data class BBScanResult(
         }
 
     // endregion
+
+    fun ByteArray.toDefaultString() = toString(Charset.defaultCharset())
 }
