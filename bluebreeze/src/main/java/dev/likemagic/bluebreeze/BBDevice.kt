@@ -162,34 +162,38 @@ class BBDevice(
                 }
             }
 
-            when (newState) {
-                BluetoothGatt.STATE_CONNECTED -> {
-                    this@BBDevice.gatt = gatt
-                    _connectionStatus.emit(BBDeviceConnectionStatus.connected)
-                }
-
-                BluetoothGatt.STATE_DISCONNECTED -> {
-                    this@BBDevice.gatt = null
-                    gatt.close()
-
-                    _connectionStatus.emit(BBDeviceConnectionStatus.disconnected)
-                    _mtu.emit(BBConstants.DEFAULT_MTU)
-                    _services.emit(emptyList())
-                }
+            if (newState == BluetoothGatt.STATE_CONNECTED) {
+                this@BBDevice.gatt = gatt
+                _connectionStatus.emit(BBDeviceConnectionStatus.connected)
             }
 
             operationCurrent?.onConnectionStateChange(gatt, status, newState)
-
-            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                operationCurrent?.cancel()
-                operationCurrent = null
-
-                operationQueue.forEach { it.cancel() }
-                operationQueue.clear()
-            }
-
             operationCheck()
         }
+    }
+
+    fun onAclConnected() {
+        operationCurrent?.onAclConnected()
+        operationCheck()
+    }
+
+    fun onAclDisconnected() {
+        this.gatt?.close()
+        this.gatt = null
+
+        _connectionStatus.emit(BBDeviceConnectionStatus.disconnected)
+        _mtu.emit(BBConstants.DEFAULT_MTU)
+        _services.emit(emptyList())
+
+        operationCurrent?.onAclDisconnected()
+
+        operationCurrent?.cancel()
+        operationCurrent = null
+
+        operationQueue.forEach { it.cancel() }
+        operationQueue.clear()
+
+        operationCheck()
     }
 
     override fun onServicesDiscovered(

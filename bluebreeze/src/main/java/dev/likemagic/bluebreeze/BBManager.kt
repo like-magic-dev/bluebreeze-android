@@ -8,6 +8,7 @@ package dev.likemagic.bluebreeze
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -30,7 +31,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
@@ -60,6 +60,18 @@ class BBManager(
 
     init {
         _authorizationStatus.emit(authorizationCheck(context))
+
+        // Register a broadcast receiver for ACL connection events
+        val intentFilter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(this, intentFilter, Context.RECEIVER_EXPORTED)
+        } else {
+            context.registerReceiver(this, intentFilter)
+        }
     }
 
     private fun authorizationCheck(context: Context): BBAuthorization {
@@ -435,6 +447,23 @@ class BBManager(
 
                         BluetoothAdapter.STATE_TURNING_ON -> {}
                         BluetoothAdapter.STATE_TURNING_OFF -> {}
+                    }
+                }
+
+                BluetoothDevice.ACTION_ACL_CONNECTED, BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
+                    val intentDevice = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    }
+
+                    val bbDevice = devices.value[intentDevice?.address]
+
+                    if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) {
+                        bbDevice?.onAclConnected()
+                    } else {
+                        bbDevice?.onAclDisconnected()
                     }
                 }
             }
