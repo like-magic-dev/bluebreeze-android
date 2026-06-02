@@ -26,12 +26,12 @@ class BBOperationDisconnect : BBOperation<Unit>() {
     }
 
     override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-        if (status == BluetoothGatt.GATT_SUCCESS) {
-            when (newState) {
-                BluetoothGatt.STATE_DISCONNECTED -> setSuccess(Unit)
-            }
-        } else {
+        if (status != BluetoothGatt.GATT_SUCCESS) {
             setError(BBError.gattError(status))
         }
+    }
+
+    override fun onAclDisconnected() {
+        setSuccess(Unit)
     }
 }
