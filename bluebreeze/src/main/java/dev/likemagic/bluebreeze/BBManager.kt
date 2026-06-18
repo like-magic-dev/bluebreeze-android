@@ -188,6 +188,16 @@ class BBManager(
 
     // endregion
 
+    // region Capabilities
+
+    val supportsExtended: Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.bluetoothAdapter?.isLeExtendedAdvertisingSupported ?: false
+    } else {
+        false
+    }
+
+    // endregion
+
     // region State
 
     private val _state = MutableSharedStateFlow(BBState.unknown)

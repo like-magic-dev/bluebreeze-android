@@ -30,6 +30,8 @@ class MainViewModel(
         initialValue = BBAuthorization.unknown,
     )
 
+    val supportsExtended: Boolean = manager.supportsExtended
+
     val state = manager.state.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
