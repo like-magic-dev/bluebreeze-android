@@ -24,7 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 
@@ -43,7 +45,15 @@ fun ScanView(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(stringResource(R.string.ble_scan))
+                    Column() {
+                        Text(stringResource(R.string.ble_scan))
+                        Text(
+                            stringResource(
+                                if (viewModel.supportsExtended) R.string.ble_scan_extended else R.string.ble_scan_legacy
+                            ),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
                 },
                 actions = {
                     if (scanEnabled.value) {
