@@ -92,20 +92,34 @@ class BBManager(
         return BBAuthorization.denied
     }
 
-    fun authorizationRequest(context: Context) {
+    private var authorizationReceiverRegistered = false
+
+    // Register a broadcast receiver once
+    private fun authorizationRegisterReceiver(context: Context) {
+        // Already registered
+        if (authorizationReceiverRegistered) {
+            return
+        }
+
         // Setup a broadcast intent filter
         val intentFilter = IntentFilter()
         intentFilter.addAction(BBPermissionRequestActivity.GRANTED)
         intentFilter.addAction(BBPermissionRequestActivity.SHOW_RATIONALE)
         intentFilter.addAction(BBPermissionRequestActivity.DENIED)
 
-        // Register a broadcast receiver
         @SuppressLint("UnspecifiedRegisterReceiverFlag")
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(this, intentFilter)
         } else {
             context.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
         }
+
+        authorizationReceiverRegistered = true
+    }
+
+    fun authorizationRequest(context: Context) {
+        // Register a broadcast receiver
+        authorizationRegisterReceiver(context)
 
         // Start the hidden activity to request permissions
         val intent = Intent(context, BBPermissionRequestActivity::class.java)
