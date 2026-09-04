@@ -139,6 +139,7 @@ class BBDevice(
             Timer().schedule((operation.timeout * 1000).toLong()) {
                 if (!operation.isComplete) {
                     operation.cancel()
+                    operationCheck()
                 }
             }
         }
