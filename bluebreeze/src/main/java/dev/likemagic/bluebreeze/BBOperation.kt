@@ -47,7 +47,7 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
         isComplete = true
     }
 
-    fun cancel() {
+    open fun cancel() {
         try {
             continuation?.resumeWith(Result.failure(BBError.operationCancelled()))
         } catch (e: IllegalStateException) {
