@@ -86,10 +86,12 @@ class BBDevice(
     }
 
     suspend fun disconnect() {
-        operationCurrent?.cancel()
+        withOperationLock {
+            operationCurrent?.cancel()
 
-        operationQueue.forEach { it.cancel() }
-        operationQueue.clear()
+            operationQueue.forEach { it.cancel() }
+            operationQueue.clear()
+        }
 
         return operationEnqueue(
             BBOperationDisconnect()
@@ -112,15 +114,21 @@ class BBDevice(
 
     // region Operation queue
 
+    private val operationLock = Any()
     private val operationQueue = LinkedBlockingQueue<BBOperation<*>>()
     private var operationCurrent: BBOperation<*>? = null
+
+    // operationCurrent/operationQueue are touched from several threads, so every access must go through this lock
+    private fun <R> withOperationLock(block: () -> R): R = synchronized(operationLock, block)
 
     override suspend fun <T> operationEnqueue(operation: BBOperation<T>): T =
         suspendCoroutine { continuation ->
             operation.continuation = continuation
 
-            operationQueue.add(operation)
-            operationCheck()
+            withOperationLock {
+                operationQueue.add(operation)
+                operationCheck()
+            }
         }
 
     private fun operationCheck() {
@@ -139,7 +147,7 @@ class BBDevice(
             Timer().schedule((operation.timeout * 1000).toLong()) {
                 if (!operation.isComplete) {
                     operation.cancel()
-                    operationCheck()
+                    withOperationLock { operationCheck() }
                 }
             }
         }
@@ -179,17 +187,19 @@ class BBDevice(
                 }
             }
 
-            operationCurrent?.onConnectionStateChange(gatt, status, newState)
+            withOperationLock {
+                operationCurrent?.onConnectionStateChange(gatt, status, newState)
 
-            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                operationCurrent?.cancel()
-                operationCurrent = null
+                if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                    operationCurrent?.cancel()
+                    operationCurrent = null
 
-                operationQueue.forEach { it.cancel() }
-                operationQueue.clear()
+                    operationQueue.forEach { it.cancel() }
+                    operationQueue.clear()
+                }
+
+                operationCheck()
             }
-
-            operationCheck()
         }
     }
 
@@ -211,8 +221,10 @@ class BBDevice(
                     })
             })
 
-        operationCurrent?.onServicesDiscovered(gatt, status)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onServicesDiscovered(gatt, status)
+            operationCheck()
+        }
     }
 
     override fun onMtuChanged(
@@ -222,8 +234,10 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        operationCurrent?.onMtuChanged(gatt, mtu, status)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onMtuChanged(gatt, mtu, status)
+            operationCheck()
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -238,8 +252,10 @@ class BBDevice(
 
         characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(gatt, descriptor, status)
 
-        operationCurrent?.onDescriptorRead(gatt, descriptor, status)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onDescriptorRead(gatt, descriptor, status)
+            operationCheck()
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -253,8 +269,10 @@ class BBDevice(
             gatt, descriptor, status, value
         )
 
-        operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
+            operationCheck()
+        }
     }
 
     override fun onDescriptorWrite(
@@ -267,8 +285,10 @@ class BBDevice(
 
         characteristic(descriptor.characteristic.uuid)?.onDescriptorWrite(gatt, descriptor, status)
 
-        operationCurrent?.onDescriptorWrite(gatt, descriptor, status)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onDescriptorWrite(gatt, descriptor, status)
+            operationCheck()
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -283,8 +303,10 @@ class BBDevice(
 
         characteristic(characteristic.uuid)?.onCharacteristicRead(gatt, characteristic, status)
 
-        operationCurrent?.onCharacteristicRead(gatt, characteristic, status)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onCharacteristicRead(gatt, characteristic, status)
+            operationCheck()
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -301,8 +323,10 @@ class BBDevice(
             status
         )
 
-        operationCurrent?.onCharacteristicRead(gatt, characteristic, value, status)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onCharacteristicRead(gatt, characteristic, value, status)
+            operationCheck()
+        }
     }
 
     override fun onCharacteristicWrite(
@@ -315,8 +339,10 @@ class BBDevice(
 
         characteristic(characteristic.uuid)?.onCharacteristicWrite(gatt, characteristic, status)
 
-        operationCurrent?.onCharacteristicWrite(gatt, characteristic, status)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onCharacteristicWrite(gatt, characteristic, status)
+            operationCheck()
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -330,8 +356,10 @@ class BBDevice(
 
         characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic)
 
-        operationCurrent?.onCharacteristicChanged(gatt, characteristic)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onCharacteristicChanged(gatt, characteristic)
+            operationCheck()
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -342,8 +370,10 @@ class BBDevice(
     ) {
         characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic, value)
 
-        operationCurrent?.onCharacteristicChanged(gatt, characteristic, value)
-        operationCheck()
+        withOperationLock {
+            operationCurrent?.onCharacteristicChanged(gatt, characteristic, value)
+            operationCheck()
+        }
     }
 
     // endregion
