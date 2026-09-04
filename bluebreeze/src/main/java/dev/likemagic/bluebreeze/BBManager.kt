@@ -296,7 +296,7 @@ class BBManager(
             val result: MutableMap<UByte, ByteArray> = mutableMapOf()
 
             val buffer = advertisedData.byteBuffer()
-            while (buffer.remaining() > 2) {
+            while (buffer.remaining() >= 2) {
                 val length = buffer.get().toInt()
                 if (length == 0) {
                     break
