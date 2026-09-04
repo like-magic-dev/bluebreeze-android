@@ -128,6 +128,9 @@ class BBDevice(
     private val operationQueue = LinkedBlockingQueue<BBOperation<*>>()
     private var operationCurrent: BBOperation<*>? = null
 
+    // A shared Timer used to schedule every operation's timeout
+    private val operationTimer = Timer()
+
     // operationCurrent/operationQueue are touched from several threads, so every access must go through this lock
     private fun <R> withOperationLock(block: () -> R): R = synchronized(operationLock, block)
 
@@ -154,7 +157,7 @@ class BBDevice(
                 gatt,
             )
 
-            Timer().schedule((operation.timeout * 1000).toLong()) {
+            operationTimer.schedule((operation.timeout * 1000).toLong()) {
                 if (!operation.isComplete) {
                     operation.cancel()
                     withOperationLock { operationCheck() }
