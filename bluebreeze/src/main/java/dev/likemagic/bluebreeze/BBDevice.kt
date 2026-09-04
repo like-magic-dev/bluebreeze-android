@@ -28,6 +28,7 @@ import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.schedule
 import kotlin.coroutines.suspendCoroutine
+import kotlin.time.Duration.Companion.milliseconds
 
 class BBDevice(
     val context: Context,
@@ -68,18 +69,27 @@ class BBDevice(
 
     // region Operations
 
+    private val maxRetriesOnGattError = 3
+
     suspend fun connect() {
-        for (i in 0..2) {
+        for (i in 0..<maxRetriesOnGattError) {
+            delay((i * 1000L).milliseconds)
+
             try {
-                delay(i * 1000L)
                 return operationEnqueue(
                     BBOperationConnect(this)
                 )
             } catch (e: BBErrorGatt) {
-                if (e.code == BBErrorGatt.GATT_ERROR) {
-                    // We catch the GATT_ERROR (133) that occurs at times when connecting
-                    // and retry the connection at increasingly large time intervals
+                if (i == maxRetriesOnGattError-1) {
+                    // Last retry failed, throw error immediately
+                    throw e
+                } else if (e.code == BBErrorGatt.GATT_ERROR) {
+                    // We caught GATT_ERROR (133), which occurs at times when connecting;
+                    // retry the connection at increasingly large time intervals
                     continue
+                } else {
+                    // Other errors are thrown immediately
+                    throw e
                 }
             }
         }
