@@ -97,7 +97,7 @@ class BBManager(
     private var authorizationReceiverRegistered = false
 
     // Register a broadcast receiver once
-    private fun authorizationRegisterReceiver(context: Context) {
+    private fun authorizationRegisterReceiver() {
         // Already registered
         if (authorizationReceiverRegistered) {
             return
@@ -111,9 +111,9 @@ class BBManager(
 
         @SuppressLint("UnspecifiedRegisterReceiverFlag")
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(this, intentFilter)
+            appContext.registerReceiver(this, intentFilter)
         } else {
-            context.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
+            appContext.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
         }
 
         authorizationReceiverRegistered = true
@@ -121,7 +121,7 @@ class BBManager(
 
     fun authorizationRequest(context: Context) {
         // Register a broadcast receiver
-        authorizationRegisterReceiver(context)
+        authorizationRegisterReceiver()
 
         // Start the hidden activity to request permissions
         val intent = Intent(context, BBPermissionRequestActivity::class.java)
@@ -217,9 +217,9 @@ class BBManager(
 
         // Register a broadcast receiver
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
+            appContext.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            context.registerReceiver(this, intentFilter)
+            appContext.registerReceiver(this, intentFilter)
         }
 
         // Retrieve the current state
@@ -482,6 +482,17 @@ class BBManager(
             }
         }
     }
+
+    // endregion
+
+    // region Lifecycle
+
+    fun close() {
+        runCatching { appContext.unregisterReceiver(this) }
+        authorizationReceiverRegistered = false
+    }
+
+    // endregion
 }
 
 val Context.sharedPreferences: SharedPreferences
