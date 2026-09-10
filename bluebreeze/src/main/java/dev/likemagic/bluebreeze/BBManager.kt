@@ -40,6 +40,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 class BBManager(
     context: Context,
 ) : BroadcastReceiver() {
+    private val appContext: Context = context.applicationContext
+
     // region Permissions
 
     private val _authorizationStatus = MutableSharedStateFlow(BBAuthorization.unknown)
@@ -252,6 +254,10 @@ class BBManager(
 
     private val scanTimes: MutableList<Long> = ArrayList()
 
+    // Remembers the last scan request and the optional service UUIDs
+    private var scanRequested = false
+    private var scanServiceUUIDs: List<BBUUID>? = null
+
     fun scanStart(
         context: Context,
         serviceUUIDs: List<BBUUID>? = null
@@ -296,10 +302,17 @@ class BBManager(
         }
 
         context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+
+        scanRequested = true
+        scanServiceUUIDs = serviceUUIDs
+
         _scanEnabled.emit(true)
     }
 
     fun scanStop(context: Context) {
+        scanRequested = false
+        scanServiceUUIDs = null
+
         if (!scanEnabled.value) {
             return
         }
@@ -449,10 +462,18 @@ class BBManager(
                     when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
                         BluetoothAdapter.STATE_OFF -> {
                             _state.emit(BBState.poweredOff)
+
+                            // The OS drops any active scan when the adapter powers off
+                            _scanEnabled.emit(false)
                         }
 
                         BluetoothAdapter.STATE_ON -> {
                             _state.emit(BBState.poweredOn)
+
+                            // Resume a scan that was running before the power cycle
+                            if (scanRequested) {
+                                runCatching { scanStart(appContext, scanServiceUUIDs) }
+                            }
                         }
 
                         BluetoothAdapter.STATE_TURNING_ON -> {}
