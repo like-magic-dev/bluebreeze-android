@@ -83,12 +83,4 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
     }
 
     // endregion
-
-    // region Bluetooth callbacks
-
-    open fun onAclConnected() { }
-
-    open fun onAclDisconnected() { }
-
-    // endregion
 }
