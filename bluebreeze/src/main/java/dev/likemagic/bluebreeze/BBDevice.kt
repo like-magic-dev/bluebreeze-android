@@ -19,8 +19,10 @@ import dev.likemagic.bluebreeze.operations.BBOperationConnect
 import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
 import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -38,6 +40,13 @@ class BBDevice(
     // Keep GATT pointer volatile to avoid stale reads
     @Volatile
     private var gatt: BluetoothGatt? = null
+
+    // Long-lived scope for delivering connection-state changes
+    private val callbackScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main + CoroutineExceptionHandler { _, e ->
+            Log.w(BBConstants.LOG_TAG, "GATT callback coroutine failed", e)
+        }
+    )
 
     // region Properties
 
@@ -189,7 +198,7 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        CoroutineScope(Dispatchers.Main).launch {
+        callbackScope.launch {
             services.value.forEach { service ->
                 service.characteristics.forEach { characteristic ->
                     characteristic.onConnectionStateChange(gatt, status, newState)
