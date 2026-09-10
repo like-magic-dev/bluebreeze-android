@@ -26,11 +26,15 @@ class MutableSharedStateFlow<T>(
         extraBufferCapacity = 16,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
+
+    // Ensure non-stale reads
+    @Volatile
     private var _value: T = initialValue
 
     val flow: SharedFlow<T> get() = _flow
     override val value: T get() = _value
 
+    @Synchronized
     fun emit(value: T) {
         _value = value
 
