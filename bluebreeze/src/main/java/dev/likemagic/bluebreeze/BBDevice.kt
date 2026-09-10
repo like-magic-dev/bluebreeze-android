@@ -12,6 +12,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
 import dev.likemagic.bluebreeze.operations.BBOperationConnect
@@ -158,10 +159,16 @@ class BBDevice(
             )
 
             operationTimer.schedule((operation.timeout * 1000).toLong()) {
-                if (!operation.isComplete) {
-                    operation.cancel()
-                    withOperationLock { operationCheck() }
-                }
+                try {
+                    if (!operation.isComplete) {
+                        operation.cancel()
+                        withOperationLock { operationCheck() }
+                    }
+                } catch (e: Throwable) {
+                    // Swallow all exceptions so the timer keeps running.
+                    // The timer runs every scheduled task on a single background thread.
+                    // If an exception escaped this task it would kill the timer thread.
+                Log.w(BBConstants.LOG_TAG, "Operation timeout handler failed", e)
             }
         }
     }
