@@ -253,6 +253,9 @@ class BBManager(
     val scanResults: SharedFlow<BBScanResult> get() = _scanResults
 
     private val scanTimes: MutableList<Long> = ArrayList()
+    private val scanTimesLock = Any()
+    private val scanWindowMillis = 30_000L
+    private val scanWindowMaxStarts = 5
 
     // Remembers the last scan request and the optional service UUIDs
     private var scanRequested = false
@@ -283,21 +286,17 @@ class BBManager(
                 .build()
         }
 
-        // When scanning more than 5 times in 30 seconds, the system will block our app from scanning.
-        // We need to catch this condition and prevent calling *startScan* below.
-        val currentTime = System.currentTimeMillis()
-        if (scanTimes.size < 5) {
-            scanTimes.add(currentTime)
-        } else {
-            val deltaTime = (currentTime - scanTimes[0])
-
-            // We throw an exception so that the app code can restart scanning after the specified time
-            if (deltaTime < 30000) {
-                val timeToWait = 30f - (deltaTime * 0.001f)
+        // The system blocks an app that calls startScan more than [scanWindowMaxStarts] times
+        // within [scanWindowMillis] milliseconds. Keep track of all recent starts and throw
+        // early with BBError.scan so the caller can back off.
+        // BBError.scan carries a time-to-wait value which can be used at application level.
+        synchronized(scanTimesLock) {
+            val currentTime = System.currentTimeMillis()
+            scanTimes.removeAll { currentTime - it >= scanWindowMillis }
+            if (scanTimes.size >= scanWindowMaxStarts) {
+                val timeToWait = (scanWindowMillis - (currentTime - scanTimes.first())) * 0.001f
                 throw BBError.scan(timeToWait)
             }
-
-            scanTimes.removeAt(0)
             scanTimes.add(currentTime)
         }
 
