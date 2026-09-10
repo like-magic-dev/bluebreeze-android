@@ -234,6 +234,9 @@ class BBManager(
     private val _devices = MutableSharedStateFlow<Map<String, BBDevice>>(mapOf())
     val devices: StateFlow<Map<String, BBDevice>> get() = _devices
 
+    // Guards the access to the devices map
+    private val devicesLock = Any()
+
     // end region
 
     // region Scan
@@ -377,15 +380,11 @@ class BBManager(
 
 
         private fun processScanResult(result: ScanResult) {
-            val device = devices.value[result.device.address] ?: BBDevice(context, result.device)
-
-            // Update the devices
-            if (devices.value[result.device.address] == null) {
-                _devices.emit(
-                    devices.value.toMutableMap().apply {
-                        this[device.address] = device
-                    }
-                )
+            // Update the devices, synchronized to prevent concurrent modifications to the map
+            val device = synchronized(devicesLock) {
+                devices.value[result.device.address] ?: BBDevice(context, result.device).also { newDevice ->
+                    _devices.emit(devices.value + (result.device.address to newDevice))
+                }
             }
 
             // Compute scan result properties
