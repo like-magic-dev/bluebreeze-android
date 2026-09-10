@@ -58,7 +58,12 @@ class BBOperationConnect(
     }
 
     private fun closeGatt() {
-        gatt?.close()
+        // Try to close an open GATT object to avoid leaking it
+        try {
+            gatt?.close()
+        } catch (e: SecurityException) {
+            // BLUETOOTH_CONNECT was revoked; nothing more we can do
+        }
         gatt = null
     }
 }
