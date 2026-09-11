@@ -61,6 +61,24 @@ def clone_repo(clone_dir: Path) -> None:
     subprocess.run(["git", "clone", REPO_URL, str(clone_dir)], check=True)
 
 
+# Kotlin/JVM caps a single method's bytecode at 64KB. Some of these lookup tables (company
+# identifiers today, potentially UUID tables too as the SIG registries keep growing) are large
+# enough that a single mapOf(...) initializer could overflow that limit. Every generated map is
+# split across multiple functions so it stays safely under the cap regardless of table size.
+MAP_CHUNK_SIZE = 1000
+
+
+def write_chunked_map(output_file, property_name: str, key_type: str, value_type: str, entries: list[str]) -> None:
+    chunks = [entries[i:i + MAP_CHUNK_SIZE] for i in range(0, len(entries), MAP_CHUNK_SIZE)]
+    calls = " + ".join(f"{property_name}{i}()" for i in range(len(chunks)))
+    output_file.write(f"        val {property_name}: Map<{key_type}, {value_type}> = {calls}\n\n")
+    for i, chunk in enumerate(chunks):
+        output_file.write(f"        private fun {property_name}{i}(): Map<{key_type}, {value_type}> = mapOf(\n")
+        for entry in chunk:
+            output_file.write(f"            {entry},\n")
+        output_file.write("        )\n\n")
+
+
 def write_service_uuids(output_file, clone_dir: Path) -> None:
     print("Parsing service UUIDs...")
     with open(clone_dir / "assigned_numbers/uuids/service_uuids.yaml", "r", encoding="utf-8") as f:
@@ -69,12 +87,11 @@ def write_service_uuids(output_file, clone_dir: Path) -> None:
     print("Exporting service UUIDs...")
     output_file.write("    // https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/uuids/service_uuids.yaml\n")
     output_file.write("    object Service {\n")
-    output_file.write("        val knownUUIDs: Map<BBUUID, String> = mapOf(\n")
-    for item in sorted(data["uuids"], key=lambda x: x["uuid"]):
-        formatted_uuid = f"{item['uuid']:04X}"
-        name = escape_kotlin_string(item["name"])
-        output_file.write(f'            BBUUID.fromString("{formatted_uuid}") to "{name}",\n')
-    output_file.write("        )\n")
+    entries = [
+        f'BBUUID.fromString("{item["uuid"]:04X}") to "{escape_kotlin_string(item["name"])}"'
+        for item in sorted(data["uuids"], key=lambda x: x["uuid"])
+    ]
+    write_chunked_map(output_file, "knownUUIDs", "BBUUID", "String", entries)
     output_file.write("    }\n\n")
 
 
@@ -86,13 +103,11 @@ def write_characteristic_uuids(output_file, clone_dir: Path) -> None:
     print("Exporting characteristic UUIDs...")
     output_file.write("    // https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/uuids/characteristic_uuids.yaml\n")
     output_file.write("    object Characteristic {\n")
-    output_file.write("        val knownUUIDs: Map<BBUUID, String> = mapOf(\n")
+    entries = []
     for item in sorted(data["uuids"], key=lambda x: x["uuid"]):
-        formatted_uuid = f"{item['uuid']:04X}"
-        name = item["name"].replace("\\textsubscript{2}", "2")
-        name = escape_kotlin_string(name)
-        output_file.write(f'            BBUUID.fromString("{formatted_uuid}") to "{name}",\n')
-    output_file.write("        )\n")
+        name = escape_kotlin_string(item["name"].replace("\\textsubscript{2}", "2"))
+        entries.append(f'BBUUID.fromString("{item["uuid"]:04X}") to "{name}"')
+    write_chunked_map(output_file, "knownUUIDs", "BBUUID", "String", entries)
     output_file.write("    }\n\n")
 
 
@@ -102,12 +117,12 @@ def write_company_identifiers(output_file, clone_dir: Path) -> None:
         data = yaml.safe_load(f)
 
     print("Exporting company identifiers...")
+    entries = [
+        f'{item["value"]} to "{escape_kotlin_string(item["name"])}"'
+        for item in sorted(data["company_identifiers"], key=lambda x: x["value"])
+    ]
     output_file.write("    object Manufacturer {\n")
-    output_file.write("        val knownIds: Map<Int, String> = mapOf(\n")
-    for item in sorted(data["company_identifiers"], key=lambda x: x["value"]):
-        name = escape_kotlin_string(item["name"])
-        output_file.write(f'            {item["value"]} to "{name}",\n')
-    output_file.write("        )\n")
+    write_chunked_map(output_file, "knownIds", "Int", "String", entries)
     output_file.write("    }\n")
 
 
