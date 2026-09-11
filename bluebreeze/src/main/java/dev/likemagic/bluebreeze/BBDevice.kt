@@ -35,6 +35,8 @@ class BBDevice(
     val context: Context,
     val device: BluetoothDevice,
 ) : BluetoothGattCallback(), BBOperationQueue {
+    // Keep GATT pointer volatile to avoid stale reads
+    @Volatile
     private var gatt: BluetoothGatt? = null
 
     // region Properties
@@ -141,33 +143,36 @@ class BBDevice(
 
             withOperationLock {
                 operationQueue.add(operation)
-                operationCheck()
             }
+            operationCheck()
         }
 
     private fun operationCheck() {
-        if (operationCurrent?.isComplete == false) {
+        val operation = withOperationLock {
+            if (operationCurrent?.isComplete == false) {
+                return@withOperationLock null
+            }
+            operationQueue.poll().also { operationCurrent = it }
+        } ?: return
+
+        operation.execute(context, device, gatt)
+
+        // execute() may have completed the operation synchronously
+        if (operation.isComplete) {
+            operationCheck()
             return
         }
 
-        operationCurrent = operationQueue.poll()
-        operationCurrent?.let { operation ->
-            operation.execute(
-                context,
-                device,
-                gatt,
-            )
-
-            operationTimer.schedule((operation.timeout * 1000).toLong()) {
-                try {
-                    if (!operation.isComplete) {
-                        operation.cancel()
-                        withOperationLock { operationCheck() }
-                    }
-                } catch (e: Throwable) {
-                    // Swallow all exceptions so the timer keeps running.
-                    // The timer runs every scheduled task on a single background thread.
-                    // If an exception escaped this task it would kill the timer thread.
+        operationTimer.schedule((operation.timeout * 1000).toLong()) {
+            try {
+                if (!operation.isComplete) {
+                    operation.cancel()
+                    operationCheck()
+                }
+            } catch (e: Throwable) {
+                // Swallow all exceptions so the timer keeps running.
+                // The timer runs every scheduled task on a single background thread.
+                // If an exception escaped this task it would kill the timer thread.
                 Log.w(BBConstants.LOG_TAG, "Operation timeout handler failed", e)
             }
         }
@@ -217,9 +222,8 @@ class BBDevice(
                     operationQueue.forEach { it.cancel() }
                     operationQueue.clear()
                 }
-
-                operationCheck()
             }
+            operationCheck()
         }
     }
 
@@ -243,8 +247,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onServicesDiscovered(gatt, status)
-            operationCheck()
         }
+        operationCheck()
     }
 
     override fun onMtuChanged(
@@ -256,8 +260,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onMtuChanged(gatt, mtu, status)
-            operationCheck()
         }
+        operationCheck()
     }
 
     @Suppress("DEPRECATION")
@@ -274,8 +278,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onDescriptorRead(gatt, descriptor, status)
-            operationCheck()
         }
+        operationCheck()
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -291,8 +295,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
-            operationCheck()
         }
+        operationCheck()
     }
 
     override fun onDescriptorWrite(
@@ -307,8 +311,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onDescriptorWrite(gatt, descriptor, status)
-            operationCheck()
         }
+        operationCheck()
     }
 
     @Suppress("DEPRECATION")
@@ -325,8 +329,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onCharacteristicRead(gatt, characteristic, status)
-            operationCheck()
         }
+        operationCheck()
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -345,8 +349,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onCharacteristicRead(gatt, characteristic, value, status)
-            operationCheck()
         }
+        operationCheck()
     }
 
     override fun onCharacteristicWrite(
@@ -361,8 +365,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onCharacteristicWrite(gatt, characteristic, status)
-            operationCheck()
         }
+        operationCheck()
     }
 
     @Suppress("DEPRECATION")
@@ -378,8 +382,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onCharacteristicChanged(gatt, characteristic)
-            operationCheck()
         }
+        operationCheck()
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -392,8 +396,8 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onCharacteristicChanged(gatt, characteristic, value)
-            operationCheck()
         }
+        operationCheck()
     }
 
     // endregion

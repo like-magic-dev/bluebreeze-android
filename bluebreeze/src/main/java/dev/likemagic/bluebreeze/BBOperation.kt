@@ -25,6 +25,9 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
     // region Completion
 
     var continuation: Continuation<T>? = null
+
+    // Ensure no stale reads on completion flag
+    @Volatile
     var isComplete = false
 
     fun setSuccess(value: T) {
