@@ -14,9 +14,14 @@ import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBConstants
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
-class BBOperationSubscribe(
+/**
+ * Enables notifications/indications on a characteristic by writing its Client Characteristic
+ * Configuration Descriptor (CCCD), backing [dev.likemagic.bluebreeze.BBCharacteristic.subscribe].
+ * Writes the indication value if the characteristic only supports indicate, notification
+ * otherwise.
+ */
+internal class BBOperationSubscribe(
     private val characteristic: BluetoothGattCharacteristic
 ) : BBOperation<Unit>() {
     private val writeValue: ByteArray get() =

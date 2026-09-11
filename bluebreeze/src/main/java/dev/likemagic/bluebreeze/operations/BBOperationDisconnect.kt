@@ -9,9 +9,9 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.content.Context
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
-class BBOperationDisconnect : BBOperation<Unit>() {
+/** Disconnects from a peripheral, backing [dev.likemagic.bluebreeze.BBDevice.disconnect]. */
+internal class BBOperationDisconnect : BBOperation<Unit>() {
     override fun execute(
         context: Context,
         device: BluetoothDevice,
@@ -26,12 +26,12 @@ class BBOperationDisconnect : BBOperation<Unit>() {
     }
 
     override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-        if (status != BluetoothGatt.GATT_SUCCESS) {
+        if (status == BluetoothGatt.GATT_SUCCESS) {
+            when (newState) {
+                BluetoothGatt.STATE_DISCONNECTED -> setSuccess(Unit)
+            }
+        } else {
             setError(BBError.gattError(status))
         }
-    }
-
-    override fun onAclDisconnected() {
-        setSuccess(Unit)
     }
 }

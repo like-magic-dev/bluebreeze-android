@@ -11,9 +11,9 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
-class BBOperationWrite(
+/** Writes a value to a characteristic, backing [dev.likemagic.bluebreeze.BBCharacteristic.write]. */
+internal class BBOperationWrite(
     private val characteristic: BluetoothGattCharacteristic,
     private val data: ByteArray,
     private val withResponse: Boolean
