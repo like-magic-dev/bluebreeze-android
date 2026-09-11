@@ -41,7 +41,7 @@ data class BBScanResult(
     val manufacturerName: String?
         get() {
             val manufacturerId = manufacturerId ?: return null
-            return BBConstants.Manufacturer.knownIds[manufacturerId]
+            return BBAssignedNumbers.Manufacturer.knownIds[manufacturerId]
         }
 
     // endregion

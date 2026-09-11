@@ -10,5 +10,5 @@ data class BBService(
     val characteristics: List<BBCharacteristic>,
 ) {
     val name: String?
-        get() = BBConstants.Service.knownUUIDs[uuid]
+        get() = BBAssignedNumbers.Service.knownUUIDs[uuid]
 }

@@ -27,7 +27,7 @@ class BBCharacteristic(
         get() = BBUUID(uuid = characteristic.uuid)
 
     val name: String?
-        get() = BBConstants.Characteristic.knownUUIDs[uuid]
+        get() = BBAssignedNumbers.Characteristic.knownUUIDs[uuid]
 
     val properties: Set<BBCharacteristicProperty>
         get() {
