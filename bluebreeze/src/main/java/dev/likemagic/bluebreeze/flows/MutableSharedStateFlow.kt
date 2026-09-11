@@ -31,6 +31,12 @@ class MutableSharedStateFlow<T>(
     @Volatile
     private var _value: T = initialValue
 
+    init {
+        // Seed _flow's own replay buffer with the initial value. Without this, a collector that
+        // subscribes before the first emit() call gets nothing until then.
+        _flow.tryEmit(initialValue)
+    }
+
     val flow: SharedFlow<T> get() = _flow
     override val value: T get() = _value
 
