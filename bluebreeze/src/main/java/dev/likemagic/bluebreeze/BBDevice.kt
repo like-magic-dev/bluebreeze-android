@@ -31,6 +31,33 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
+/**
+ * A single BLE peripheral discovered by a [BBManager] scan.
+ *
+ * `BBDevice` instances are created and owned by [BBManager] -- you never construct one yourself,
+ * you get one from [BBManager.devices] or [BBScanResult.device]. The same instance is reused
+ * across repeated discoveries, connects, and disconnects of the same physical peripheral.
+ *
+ * All BLE operations ([connect], [disconnect], [discoverServices], [requestMTU], and the
+ * read/write/subscribe methods on [BBCharacteristic]) are queued and executed one at a time per
+ * device, in call order, each with a 5-second timeout -- you don't need to serialize calls
+ * yourself, just call the suspend functions.
+ *
+ * Typical flow: connect, discover services, then read/write/subscribe to the characteristics
+ * that appear in [services].
+ * ```kotlin
+ * device.connect()
+ * device.discoverServices()
+ *
+ * for (service in device.services.value) {
+ *     for (characteristic in service.characteristics) {
+ *         if (BBCharacteristicProperty.read in characteristic.properties) {
+ *             val data = characteristic.read()
+ *         }
+ *     }
+ * }
+ * ```
+ */
 class BBDevice internal constructor(
     private val context: Context,
     internal val device: BluetoothDevice,
@@ -46,9 +73,11 @@ class BBDevice internal constructor(
 
     // region Properties
 
+    /** The peripheral's MAC address. Stable for the lifetime of the app, but Android randomizes it per-bond for privacy on many peripherals, so don't expect it to match across un-paired re-discoveries. */
     val address: String
         get() = device.address
 
+    /** The peripheral's name, if the OS already knows one (e.g. from a previous bond). May be `null` -- prefer [BBScanResult.name] while scanning, which also reads the advertised name. */
     val name: String?
         get() = device.name
 
@@ -57,6 +86,8 @@ class BBDevice internal constructor(
     // region Services
 
     private val _services = MutableSharedStateFlow(emptyList<BBService>())
+
+    /** Services discovered so far. Empty until [discoverServices] has been called and completed. */
     val services: StateFlow<List<BBService>> get() = _services
 
     // endregion
@@ -64,6 +95,12 @@ class BBDevice internal constructor(
     // region Connection status
 
     private val _connectionStatus = MutableSharedStateFlow(BBDeviceConnectionStatus.disconnected)
+
+    /**
+     * The device's current connection state. Updates automatically on connect, disconnect, and
+     * unexpected link loss (including the whole Bluetooth adapter powering off) -- you don't
+     * need to poll it after calling [connect]/[disconnect].
+     */
     val connectionStatus: StateFlow<BBDeviceConnectionStatus> get() = _connectionStatus
 
     // endregion
@@ -71,6 +108,8 @@ class BBDevice internal constructor(
     // region MTU
 
     private val _mtu = MutableSharedStateFlow(BBConstants.DEFAULT_MTU)
+
+    /** The negotiated ATT MTU in bytes -- the largest amount of data that fits in a single read/write. [BBConstants.DEFAULT_MTU] (23) until [requestMTU] is called and awaited. */
     val mtu: StateFlow<Int> get() = _mtu
 
     // endregion
@@ -79,6 +118,17 @@ class BBDevice internal constructor(
 
     private val maxRetriesOnGattError = 3
 
+    /**
+     * Connects to the peripheral. Updates [connectionStatus] to [BBDeviceConnectionStatus.connected]
+     * on success. Returns immediately if already connected.
+     *
+     * Retries automatically, with increasing delay, if the connection attempt fails with GATT
+     * status 133 (a transient failure Android peripherals hit occasionally) -- up to
+     * [maxRetriesOnGattError] attempts before giving up. Any other error is thrown immediately
+     * without retrying.
+     *
+     * @throws BBError if every attempt fails or times out.
+     */
     suspend fun connect() {
         for (i in 0..<maxRetriesOnGattError) {
             delay((i * 1000L).milliseconds)
@@ -103,6 +153,13 @@ class BBDevice internal constructor(
         }
     }
 
+    /**
+     * Disconnects from the peripheral. Updates [connectionStatus] to
+     * [BBDeviceConnectionStatus.disconnected] on success. Cancels any other operation currently
+     * queued or in flight on this device first.
+     *
+     * @throws BBError if the disconnect attempt fails or times out.
+     */
     suspend fun disconnect() {
         operationQueue.cancelAll()
 
@@ -111,12 +168,26 @@ class BBDevice internal constructor(
         )
     }
 
+    /**
+     * Discovers all the peripheral's services and their characteristics.
+     * Requires an active connection.
+     *
+     * @throws BBError if discovery fails or times out.
+     */
     suspend fun discoverServices() {
         return operationEnqueue(
             BBOperationDiscoverServices()
         )
     }
 
+    /**
+     * Requests a larger ATT MTU, updating [mtu] with whatever size the peripheral actually
+     * negotiates (which may be smaller than requested).
+     *
+     * @param mtu the desired MTU size in bytes.
+     * @return the negotiated MTU size.
+     * @throws BBError if the request fails or times out.
+     */
     suspend fun requestMTU(mtu: Int): Int {
         return operationEnqueue(
             BBOperationRequestMtu(mtu)
@@ -134,6 +205,14 @@ class BBDevice internal constructor(
 
     // region Bluetooth callback
 
+    /**
+     * Called by [BBManager] whenever the Bluetooth adapter's power state changes.
+     *
+     * Forces this device's connection into [BBDeviceConnectionStatus.disconnected] whenever
+     * [state] isn't [BBState.poweredOn]: the OS silently invalidates any live GATT client when
+     * the adapter powers off, without a matching [onConnectionStateChange] callback, so this is
+     * the only way this device otherwise learns its connection is gone.
+     */
     internal fun onAdapterStateChanged(state: BBState) {
         if (state != BBState.poweredOn) {
             connectionLost()
@@ -143,6 +222,11 @@ class BBDevice internal constructor(
     // endregion
 
     // region Bluetooth GATT callback
+
+    // The overrides below mirror BluetoothGattCallback; BBManager forwards GATT callbacks for
+    // this device's peripheral into these methods. Not meant to be called directly, and not part
+    // of BlueBreeze's public API despite being public (Kotlin requires overrides to match their
+    // superclass's visibility).
 
     override fun onConnectionStateChange(
         gatt: BluetoothGatt?,
@@ -330,6 +414,7 @@ class BBDevice internal constructor(
 
     // region Lookup
 
+    /** Finds a discovered characteristic by UUID across every service in [services], or `null` if none matches. */
     fun characteristic(uuid: UUID): BBCharacteristic? {
         services.value.forEach { service ->
             service.characteristics.forEach { characteristic ->

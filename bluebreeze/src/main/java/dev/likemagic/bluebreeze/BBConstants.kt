@@ -5,13 +5,17 @@
 
 package dev.likemagic.bluebreeze
 
+/** Hand-maintained library constants. Bluetooth SIG-assigned lookup tables live in [BBAssignedNumbers] instead. */
 object BBConstants {
+    /** Log tag used for BlueBreeze's internal `android.util.Log` calls. */
     internal const val LOG_TAG = "BlueBreeze"
 
     internal object UUID {
+        /** The Client Characteristic Configuration Descriptor UUID, used to enable/disable notifications. */
         val cccd = BBUUID.fromString("2902").uuid
     }
 
+    /** Advertising Data (AD) structure type codes, as assigned by the Bluetooth SIG. */
     // https://www.bluetooth.com/wp-content/uploads/Files/Specification/Assigned_Numbers.html
     object Advertisement {
         const val FLAGS: UByte = 0x01u
@@ -67,5 +71,6 @@ object BBConstants {
         const val MANUFACTURER: UByte = 0xFFu
     }
 
+    /** The BLE-minimum ATT MTU (23 bytes), used as [BBDevice.mtu]'s initial value until [BBDevice.requestMTU] negotiates a larger one. */
     const val DEFAULT_MTU: Int = 23
 }

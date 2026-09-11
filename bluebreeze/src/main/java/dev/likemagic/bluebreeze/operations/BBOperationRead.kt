@@ -11,6 +11,13 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
 import dev.likemagic.bluebreeze.BBError
 
+/**
+ * Reads a characteristic's value, backing [dev.likemagic.bluebreeze.BBCharacteristic.read].
+ *
+ * Implements both the pre-API-33 callback (deprecated, reads the value back off the mutable
+ * [BluetoothGattCharacteristic]) and the API 33+ callback (which passes the value directly) --
+ * exactly one of the two fires on a given device, depending on OS version.
+ */
 internal class BBOperationRead(
     private val characteristic: BluetoothGattCharacteristic
 ) : BBOperation<ByteArray>() {

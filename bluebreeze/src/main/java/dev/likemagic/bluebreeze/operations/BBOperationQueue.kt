@@ -19,10 +19,22 @@ import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.schedule
 import kotlin.coroutines.suspendCoroutine
 
+/**
+ * Runs a [dev.likemagic.bluebreeze.BBDevice]'s queued [BBOperation]s one at a time, in call order, each with a timeout.
+ * Passed down to [dev.likemagic.bluebreeze.BBCharacteristic] as well, so a characteristic's read/write/subscribe calls
+ * queue onto the same per-device queue as `connect`/`disconnect`/`discoverServices`, rather than
+ * racing them.
+ *
+ * Owns the queue, the currently-executing operation, and the [BluetoothGatt] client they run
+ * against. [dev.likemagic.bluebreeze.BBDevice] doesn't handle Bluetooth GATT callbacks here directly -- it forwards them
+ * in through the methods below, which route them to the current operation and then check whether
+ * the next queued operation can start.
+ */
 internal class BBOperationQueue(
     private val context: Context,
     private val device: BluetoothDevice,
 ) {
+    /** The [BluetoothGatt] client currently in use, or `null` before the first successful connect and after a disconnect or unexpected connection loss. */
     @Volatile
     var gatt: BluetoothGatt? = null
         private set
@@ -37,6 +49,13 @@ internal class BBOperationQueue(
     // operationCurrent/operationQueue are touched from several threads, so every access must go through this lock
     private fun <R> withOperationLock(block: () -> R): R = synchronized(operationLock, block)
 
+    /**
+     * Adds [operation] to the queue and suspends until it completes -- either because it ran
+     * and resolved, or because it was cancelled (e.g. by a disconnect or a 5-second timeout)
+     * while waiting or in flight.
+     *
+     * @throws dev.likemagic.bluebreeze.BBError if the operation fails, times out, or is cancelled.
+     */
     suspend fun <T> operationEnqueue(operation: BBOperation<T>): T =
         suspendCoroutine { continuation ->
             operation.continuation = continuation
@@ -78,6 +97,11 @@ internal class BBOperationQueue(
         }
     }
 
+    /**
+     * Cancels the in-flight operation (if any) and every operation still waiting, without
+     * touching [gatt] -- used ahead of a `disconnect()` call, which enqueues its own operation
+     * right after.
+     */
     fun cancelAll() {
         withOperationLock {
             operationCurrent?.cancel()
@@ -86,6 +110,10 @@ internal class BBOperationQueue(
         }
     }
 
+    /**
+     * Tears down the current [gatt] client and cancels every in-flight/queued operation -- used
+     * when the connection is lost unexpectedly, rather than via a clean disconnect.
+     */
     fun reset() {
         gatt?.close()
         gatt = null

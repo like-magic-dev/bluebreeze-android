@@ -12,6 +12,7 @@ import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
 
+/** Writes a value to a characteristic, backing [dev.likemagic.bluebreeze.BBCharacteristic.write]. */
 internal class BBOperationWrite(
     private val characteristic: BluetoothGattCharacteristic,
     private val data: ByteArray,

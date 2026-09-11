@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothGatt
 import android.content.Context
 import dev.likemagic.bluebreeze.BBError
 
+/** Disconnects from a peripheral, backing [dev.likemagic.bluebreeze.BBDevice.disconnect]. */
 internal class BBOperationDisconnect : BBOperation<Unit>() {
     override fun execute(
         context: Context,

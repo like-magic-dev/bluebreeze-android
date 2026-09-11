@@ -15,6 +15,7 @@ import android.os.Build
 import dev.likemagic.bluebreeze.BBConstants
 import dev.likemagic.bluebreeze.BBError
 
+/** Disables notifications/indications previously enabled by [BBOperationSubscribe], backing [dev.likemagic.bluebreeze.BBCharacteristic.unsubscribe]. */
 internal class BBOperationUnsubscribe(
     private val characteristic: BluetoothGattCharacteristic
 ) : BBOperation<Unit>() {
