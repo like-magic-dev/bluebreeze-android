@@ -5,7 +5,7 @@
 
 package dev.likemagic.bluebreeze
 
-data class BBService(
+data class BBService internal constructor(
     val uuid: BBUUID,
     val characteristics: List<BBCharacteristic>,
 ) {

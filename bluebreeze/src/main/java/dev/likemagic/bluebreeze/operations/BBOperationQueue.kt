@@ -19,7 +19,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.schedule
 import kotlin.coroutines.suspendCoroutine
 
-class BBOperationQueue(
+internal class BBOperationQueue(
     private val context: Context,
     private val device: BluetoothDevice,
 ) {

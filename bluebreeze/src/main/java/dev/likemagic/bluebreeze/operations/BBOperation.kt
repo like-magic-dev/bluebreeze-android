@@ -12,7 +12,7 @@ import android.content.Context
 import dev.likemagic.bluebreeze.BBError
 import kotlin.coroutines.Continuation
 
-abstract class BBOperation<T> : BluetoothGattCallback() {
+internal abstract class BBOperation<T> : BluetoothGattCallback() {
     // region Execution
 
     abstract fun execute(

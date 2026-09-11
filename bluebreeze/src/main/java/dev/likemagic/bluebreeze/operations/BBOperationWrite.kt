@@ -12,7 +12,7 @@ import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
 
-class BBOperationWrite(
+internal class BBOperationWrite(
     private val characteristic: BluetoothGattCharacteristic,
     private val data: ByteArray,
     private val withResponse: Boolean

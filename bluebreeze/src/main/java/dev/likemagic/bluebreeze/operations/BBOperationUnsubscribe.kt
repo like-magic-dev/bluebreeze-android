@@ -15,7 +15,7 @@ import android.os.Build
 import dev.likemagic.bluebreeze.BBConstants
 import dev.likemagic.bluebreeze.BBError
 
-class BBOperationUnsubscribe(
+internal class BBOperationUnsubscribe(
     private val characteristic: BluetoothGattCharacteristic
 ) : BBOperation<Unit>() {
     private val writeValue = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE

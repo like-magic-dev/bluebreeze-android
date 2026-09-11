@@ -7,7 +7,7 @@ package dev.likemagic.bluebreeze
 
 import java.nio.charset.Charset
 
-data class BBScanResult(
+data class BBScanResult internal constructor(
     val device: BBDevice,
     val rssi: Int,
     val advertisementData: Map<UByte, ByteArray>,
@@ -46,5 +46,5 @@ data class BBScanResult(
 
     // endregion
 
-    fun ByteArray.toDefaultString() = toString(Charset.defaultCharset())
+    private fun ByteArray.toDefaultString() = toString(Charset.defaultCharset())
 }

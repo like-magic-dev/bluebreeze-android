@@ -73,7 +73,7 @@ class BBManager(
 
         // If some permissions have not been requested yet, we do not know the status
         val requested =
-            authorizationPermissions.map { context.sharedPreferences.getBoolean(it, false) }
+            authorizationPermissions.map { sharedPreferences(context).getBoolean(it, false) }
         if (requested.any { !it }) {
             return BBAuthorization.unknown
         }
@@ -134,7 +134,7 @@ class BBManager(
         context.startActivity(intent)
 
         // Save the requested permissions
-        context.sharedPreferences.edit {
+        sharedPreferences(context).edit {
             authorizationPermissions.forEach {
                 putBoolean(it, true)
             }
@@ -150,7 +150,7 @@ class BBManager(
         context.startActivity(intent)
     }
 
-    class BBPermissionRequestActivity : AppCompatActivity() {
+    internal class BBPermissionRequestActivity : AppCompatActivity() {
         companion object {
             const val KEY = "BBPermissionRequestActivity.key"
             const val GRANTED = "BBPermissionRequestActivity.granted"
@@ -158,7 +158,7 @@ class BBManager(
             const val DENIED = "BBPermissionRequestActivity.denied"
         }
 
-        val permissionRequest = registerForActivityResult(
+        private val permissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { granted: Map<String, Boolean> ->
             val shouldShowRationale = granted.keys.map {
@@ -194,7 +194,7 @@ class BBManager(
     // region Capabilities
 
     val supportsExtended: Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.bluetoothAdapter?.isLeExtendedAdvertisingSupported ?: false
+        bluetoothAdapter(context)?.isLeExtendedAdvertisingSupported ?: false
     } else {
         false
     }
@@ -223,7 +223,7 @@ class BBManager(
         }
 
         // Retrieve the current state
-        return when (context.bluetoothAdapter?.isEnabled) {
+        return when (bluetoothAdapter(context)?.isEnabled) {
             true -> BBState.poweredOn
             else -> BBState.poweredOff
         }
@@ -306,7 +306,7 @@ class BBManager(
             scanTimes.add(currentTime)
         }
 
-        context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+        bluetoothLeScanner(context)?.startScan(scanFilters, scanSettings, scanCallback)
 
         scanRequested = true
         scanServiceUUIDs = serviceUUIDs
@@ -322,11 +322,23 @@ class BBManager(
             return
         }
 
-        context.bluetoothLeScanner?.stopScan(scanCallback)
+        bluetoothLeScanner(context)?.stopScan(scanCallback)
         _scanEnabled.emit(false)
     }
 
     private val scanCallback: ScanCallback = object : ScanCallback() {
+        // Wraps this byte array in a little-endian ByteBuffer -- BLE advertisement data is
+        // little-endian throughout.
+        private fun ByteArray.byteBuffer(): ByteBuffer {
+            val byteBuffer = ByteBuffer.wrap(this)
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
+            return byteBuffer
+        }
+
+        // This byte as two uppercase hex digits (e.g. 0x0A -> "0A"), used to build UUID strings
+        // out of raw advertisement bytes.
+        private val Byte.hexString: String get() = toUByte().toString(16).uppercase().padStart(2, '0')
+
         private fun parseAdvertisedData(advertisedData: ByteArray): Map<UByte, ByteArray> {
             val result: MutableMap<UByte, ByteArray> = mutableMapOf()
 
@@ -498,25 +510,22 @@ class BBManager(
         authorizationReceiverRegistered = false
     }
 
-    // endregion
-}
+    // region Helpers
 
-val Context.sharedPreferences: SharedPreferences
-    get() = getSharedPreferences("BlueBreeze", Context.MODE_PRIVATE)
+    // BlueBreeze's own SharedPreferences file, used to remember which permissions have already
+    // been requested once.
+    private fun sharedPreferences(context: Context): SharedPreferences =
+        context.getSharedPreferences("BlueBreeze", Context.MODE_PRIVATE)
 
-val Context.bluetoothAdapter: BluetoothAdapter?
-    get() {
-        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    // context's BluetoothAdapter, or null if the device has no Bluetooth hardware.
+    private fun bluetoothAdapter(context: Context): BluetoothAdapter? {
+        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         return bluetoothManager?.adapter
     }
 
-val Context.bluetoothLeScanner: BluetoothLeScanner?
-    get() = bluetoothAdapter?.bluetoothLeScanner
+    // context's BluetoothLeScanner, or null if there's no adapter to get one from.
+    private fun bluetoothLeScanner(context: Context): BluetoothLeScanner? =
+        bluetoothAdapter(context)?.bluetoothLeScanner
 
-fun ByteArray.byteBuffer(): ByteBuffer {
-    val byteBuffer = ByteBuffer.wrap(this)
-    byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
-    return byteBuffer
+    // endregion
 }
-
-val Byte.hexString: String get() = toUByte().toString(16).uppercase().padStart(2, '0')

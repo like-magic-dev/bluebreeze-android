@@ -18,9 +18,9 @@ import dev.likemagic.bluebreeze.operations.BBOperationUnsubscribe
 import dev.likemagic.bluebreeze.operations.BBOperationWrite
 import kotlinx.coroutines.flow.StateFlow
 
-class BBCharacteristic(
-    val characteristic: BluetoothGattCharacteristic,
-    val operationQueue: BBOperationQueue,
+class BBCharacteristic internal constructor(
+    internal val characteristic: BluetoothGattCharacteristic,
+    internal val operationQueue: BBOperationQueue,
 ): BluetoothGattCallback() {
     // region Computed properties
 

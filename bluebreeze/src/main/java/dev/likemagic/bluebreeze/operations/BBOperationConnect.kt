@@ -12,7 +12,7 @@ import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
 
-class BBOperationConnect(
+internal class BBOperationConnect(
     private val gattCallback: BluetoothGattCallback
 ) : BBOperation<Unit>() {
     private var gatt: BluetoothGatt? = null

@@ -10,7 +10,7 @@ import android.bluetooth.BluetoothGatt
 import android.content.Context
 import dev.likemagic.bluebreeze.BBError
 
-class BBOperationDisconnect : BBOperation<Unit>() {
+internal class BBOperationDisconnect : BBOperation<Unit>() {
     override fun execute(
         context: Context,
         device: BluetoothDevice,

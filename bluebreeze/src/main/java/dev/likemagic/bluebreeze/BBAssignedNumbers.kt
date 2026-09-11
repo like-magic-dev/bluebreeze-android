@@ -11,7 +11,7 @@ package dev.likemagic.bluebreeze
  *
  * Auto-generated. Do not edit by hand.
  */
-object BBAssignedNumbers {
+internal object BBAssignedNumbers {
 
     // https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/uuids/service_uuids.yaml
     object Service {

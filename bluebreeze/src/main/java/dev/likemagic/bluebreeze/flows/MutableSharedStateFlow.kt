@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 /// values and uses a generous buffer for queuing values.
 
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-class MutableSharedStateFlow<T>(
+internal class MutableSharedStateFlow<T>(
     initialValue: T
 ) : StateFlow<T> {
     private val _flow = MutableSharedFlow<T>(

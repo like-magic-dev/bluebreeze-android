@@ -6,9 +6,9 @@
 package dev.likemagic.bluebreeze
 
 object BBConstants {
-    const val LOG_TAG = "BlueBreeze"
+    internal const val LOG_TAG = "BlueBreeze"
 
-    object UUID {
+    internal object UUID {
         val cccd = BBUUID.fromString("2902").uuid
     }
 

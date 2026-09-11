@@ -15,7 +15,7 @@ import android.os.Build
 import dev.likemagic.bluebreeze.BBConstants
 import dev.likemagic.bluebreeze.BBError
 
-class BBOperationSubscribe(
+internal class BBOperationSubscribe(
     private val characteristic: BluetoothGattCharacteristic
 ) : BBOperation<Unit>() {
     private val writeValue: ByteArray get() =

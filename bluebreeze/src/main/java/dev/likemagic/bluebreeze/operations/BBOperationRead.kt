@@ -11,7 +11,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
 import dev.likemagic.bluebreeze.BBError
 
-class BBOperationRead(
+internal class BBOperationRead(
     private val characteristic: BluetoothGattCharacteristic
 ) : BBOperation<ByteArray>() {
     override fun execute(

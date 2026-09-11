@@ -31,9 +31,9 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
-class BBDevice(
-    val context: Context,
-    val device: BluetoothDevice,
+class BBDevice internal constructor(
+    private val context: Context,
+    internal val device: BluetoothDevice,
 ) : BluetoothGattCallback() {
     private val operationQueue = BBOperationQueue(context, device)
 
@@ -134,7 +134,7 @@ class BBDevice(
 
     // region Bluetooth callback
 
-    fun onAdapterStateChanged(state: BBState) {
+    internal fun onAdapterStateChanged(state: BBState) {
         if (state != BBState.poweredOn) {
             connectionLost()
         }
@@ -327,16 +327,20 @@ class BBDevice(
     }
 
     // endregion
-}
 
-fun BBDevice.characteristic(uuid: UUID): BBCharacteristic? {
-    services.value.forEach { service ->
-        service.characteristics.forEach { characteristic ->
-            if (characteristic.uuid.equals(uuid)) {
-                return characteristic
+    // region Lookup
+
+    fun characteristic(uuid: UUID): BBCharacteristic? {
+        services.value.forEach { service ->
+            service.characteristics.forEach { characteristic ->
+                if (characteristic.uuid.equals(uuid)) {
+                    return characteristic
+                }
             }
         }
+
+        return null
     }
 
-    return null
+    // endregion
 }
