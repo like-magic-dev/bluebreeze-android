@@ -229,6 +229,12 @@ class BBManager(
         }
     }
 
+    // Publishes the new adapter state and pushes it down to every known device
+    private fun updateState(state: BBState) {
+        _state.emit(state)
+        devices.value.values.forEach { it.onAdapterStateChanged(state) }
+    }
+
     // endregion
 
     // region Devices
@@ -460,14 +466,14 @@ class BBManager(
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
                         BluetoothAdapter.STATE_OFF -> {
-                            _state.emit(BBState.poweredOff)
+                            updateState(BBState.poweredOff)
 
                             // The OS drops any active scan when the adapter powers off
                             _scanEnabled.emit(false)
                         }
 
                         BluetoothAdapter.STATE_ON -> {
-                            _state.emit(BBState.poweredOn)
+                            updateState(BBState.poweredOn)
 
                             // Resume a scan that was running before the power cycle
                             if (scanRequested) {

@@ -189,6 +189,16 @@ class BBDevice(
 
     // endregion
 
+    // region Bluetooth callback
+
+    fun onAdapterStateChanged(state: BBState) {
+        if (state != BBState.poweredOn) {
+            connectionLost()
+        }
+    }
+
+    // endregion
+
     // region Bluetooth GATT callback
 
     override fun onConnectionStateChange(
@@ -205,33 +215,19 @@ class BBDevice(
                 }
             }
 
-            when (newState) {
-                BluetoothGatt.STATE_CONNECTED -> {
-                    this@BBDevice.gatt = gatt
-                    _connectionStatus.emit(BBDeviceConnectionStatus.connected)
-                }
-
-                BluetoothGatt.STATE_DISCONNECTED -> {
-                    this@BBDevice.gatt = null
-                    gatt.close()
-
-                    _connectionStatus.emit(BBDeviceConnectionStatus.disconnected)
-                    _mtu.emit(BBConstants.DEFAULT_MTU)
-                    _services.emit(emptyList())
-                }
+            if (newState == BluetoothGatt.STATE_CONNECTED) {
+                this@BBDevice.gatt = gatt
+                _connectionStatus.emit(BBDeviceConnectionStatus.connected)
             }
 
             withOperationLock {
                 operationCurrent?.onConnectionStateChange(gatt, status, newState)
-
-                if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                    operationCurrent?.cancel()
-                    operationCurrent = null
-
-                    operationQueue.forEach { it.cancel() }
-                    operationQueue.clear()
-                }
             }
+
+            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                connectionLost()
+            }
+
             operationCheck()
         }
     }
@@ -405,6 +401,29 @@ class BBDevice(
 
         withOperationLock {
             operationCurrent?.onCharacteristicChanged(gatt, characteristic, value)
+        }
+        operationCheck()
+    }
+
+    // endregion
+
+    // region Connection state handling
+
+    // Forces this device into the disconnected state and tears down its GATT client
+    private fun connectionLost() {
+        gatt?.close()
+        gatt = null
+
+        _connectionStatus.emit(BBDeviceConnectionStatus.disconnected)
+        _mtu.emit(BBConstants.DEFAULT_MTU)
+        _services.emit(emptyList())
+
+        withOperationLock {
+            operationCurrent?.cancel()
+            operationCurrent = null
+
+            operationQueue.forEach { it.cancel() }
+            operationQueue.clear()
         }
         operationCheck()
     }
