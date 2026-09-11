@@ -5,26 +5,47 @@
 
 package dev.likemagic.bluebreeze
 
+/** The base error type thrown by BlueBreeze's suspend functions. See the factory functions below for the specific failures it represents. */
 open class BBError(
     message: String = "Unspecified error"
 ) : Throwable(message = message) {
     companion object {
+        /**
+         * Thrown by [BBManager.scanStart] when it's called more than 5 times within a rolling
+         * 30-second window -- the system limit for `startScan`. [timeToWait] is how many
+         * seconds remain before the caller can retry.
+         */
         fun scan(timeToWait: Float): BBError = BBError(
             message = "Scanned too often, please wait $timeToWait seconds before scanning"
         )
 
+        /**
+         * Thrown to any operation still queued or in flight on a [BBDevice] when that device is
+         * disconnected (explicitly, by the adapter powering off, or by a GATT-level disconnect)
+         * or replaced by a new one before completing.
+         */
         fun operationCancelled(): BBError = BBError(
             message = "Operation cancelled"
         )
 
+        /** Thrown when an operation can't proceed because the GATT connection isn't (or is no longer) established. */
         fun gattDisconnected(): BBError = BBError(
             message = "Gatt disconnected"
         )
 
+        /**
+         * Builds a [BBErrorGatt] for a native GATT status [code] (one of the `BBErrorGatt.GATT_*`
+         * constants), or a runtime failure with no status code if [code] is `null`.
+         */
         fun gattError(code: Int? = null): BBError = BBErrorGatt(code = code)
     }
 }
 
+/**
+ * A [BBError] carrying the native GATT status [code] that caused it (see the `GATT_*` constants
+ * below, transcribed from AOSP's `gatt_api.h`), or `null` for a failure with no status code
+ * (e.g. a `SecurityException` from a revoked permission).
+ */
 class BBErrorGatt(
     val code: Int?,
 ): BBError(

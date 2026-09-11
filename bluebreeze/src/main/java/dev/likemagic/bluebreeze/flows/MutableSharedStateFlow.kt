@@ -12,13 +12,21 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/// This class extends the MutableSharedFlow giving it state persistence similar to
-/// the MutableStateFlow interface.
-/// In contrast to the MutableStateFlow this class is meant to prevent dropping of
-/// values and uses a generous buffer for queuing values.
-
+/**
+ * A [StateFlow] built on [MutableSharedFlow] instead of `MutableStateFlow`, used throughout
+ * BlueBreeze for every publicly observable property (`BBDevice.connectionStatus`,
+ * `BBManager.state`, and so on).
+ *
+ * `MutableStateFlow` collapses rapid updates: a collector that's slow, or briefly not collecting,
+ * only ever sees the *latest* value, silently skipping any it emitted in between -- fine for UI
+ * state, but wrong here, since BlueBreeze's GATT callbacks can fire updates faster than a
+ * collector processes them and every one matters (e.g. a device transiently reporting
+ * `connected` then `disconnected` within the same event burst). This class instead buffers up
+ * to 16 pending values and only drops the *oldest* one once that buffer is genuinely full,
+ * rather than dropping down to a single latest value on every emission.
+ */
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-class MutableSharedStateFlow<T>(
+internal class MutableSharedStateFlow<T>(
     initialValue: T
 ) : StateFlow<T> {
     private val _flow = MutableSharedFlow<T>(
@@ -27,7 +35,8 @@ class MutableSharedStateFlow<T>(
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
-    // Ensure non-stale reads
+    // Written from many threads (GATT callback threads, scan callbacks, callers), so @Volatile
+    // for readers of .value and @Synchronized on emit() to keep it paired with the replay cache.
     @Volatile
     private var _value: T = initialValue
 
@@ -37,9 +46,12 @@ class MutableSharedStateFlow<T>(
         _flow.tryEmit(initialValue)
     }
 
+    /** The underlying [SharedFlow], for callers that specifically want shared-flow (rather than state-flow) semantics. */
     val flow: SharedFlow<T> get() = _flow
+
     override val value: T get() = _value
 
+    /** Publishes [value] as the new current value and to every active collector. */
     @Synchronized
     fun emit(value: T) {
         _value = value

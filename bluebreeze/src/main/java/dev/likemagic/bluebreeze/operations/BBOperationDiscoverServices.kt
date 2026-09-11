@@ -9,9 +9,9 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.content.Context
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
-class BBOperationDiscoverServices : BBOperation<Unit>() {
+/** Discovers a peripheral's services and characteristics, backing [dev.likemagic.bluebreeze.BBDevice.discoverServices]. */
+internal class BBOperationDiscoverServices : BBOperation<Unit>() {
     override fun execute(
         context: Context,
         device: BluetoothDevice,

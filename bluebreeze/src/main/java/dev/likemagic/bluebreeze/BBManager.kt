@@ -37,6 +37,24 @@ import java.nio.ByteOrder
 import androidx.core.content.edit
 import kotlinx.coroutines.channels.BufferOverflow
 
+/**
+ * The top-level entry point to BlueBreeze: Bluetooth permissions, adapter power state, scanning,
+ * and the registry of every [BBDevice] discovered so far.
+ *
+ * Construct one `BBManager` per app (it registers broadcast receivers for its lifetime -- call
+ * [close] when you're done with it) and use it to request permissions, wait for
+ * [state] to become [BBState.poweredOn], then [scanStart] and collect [scanResults].
+ * ```kotlin
+ * val manager = BBManager(context)
+ * if (manager.authorizationStatus.value != BBAuthorization.authorized) {
+ *     manager.authorizationRequest(activity)
+ * }
+ * manager.scanStart(context)
+ * manager.scanResults.collect { result ->
+ *     // result.device is the same BBDevice instance on every subsequent sighting
+ * }
+ * ```
+ */
 class BBManager(
     context: Context,
 ) : BroadcastReceiver() {
@@ -45,6 +63,8 @@ class BBManager(
     // region Permissions
 
     private val _authorizationStatus = MutableSharedStateFlow(BBAuthorization.unknown)
+
+    /** The app's current authorization status for the Bluetooth permissions BlueBreeze needs. Call [authorizationRequest] to request them if this isn't [BBAuthorization.authorized]. */
     val authorizationStatus: StateFlow<BBAuthorization> get() = _authorizationStatus
 
     private val authorizationPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -73,7 +93,7 @@ class BBManager(
 
         // If some permissions have not been requested yet, we do not know the status
         val requested =
-            authorizationPermissions.map { context.sharedPreferences.getBoolean(it, false) }
+            authorizationPermissions.map { sharedPreferences(context).getBoolean(it, false) }
         if (requested.any { !it }) {
             return BBAuthorization.unknown
         }
@@ -119,6 +139,11 @@ class BBManager(
         authorizationReceiverRegistered = true
     }
 
+    /**
+     * Requests every permission BlueBreeze needs, updating [authorizationStatus] with the
+     * result. Launches a hidden activity to perform the actual system permission request, so
+     * this can be called from any [Context], not just an [Activity].
+     */
     fun authorizationRequest(context: Context) {
         // Register a broadcast receiver
         authorizationRegisterReceiver()
@@ -134,13 +159,18 @@ class BBManager(
         context.startActivity(intent)
 
         // Save the requested permissions
-        context.sharedPreferences.edit {
+        sharedPreferences(context).edit {
             authorizationPermissions.forEach {
                 putBoolean(it, true)
             }
         }
     }
 
+    /**
+     * Opens the app's system settings screen -- the only way to recover once a permission has
+     * been permanently denied ([BBAuthorization.denied]), since the system will no longer show
+     * its own request dialog for it.
+     */
     fun authorizationOpenSettings(context: Context) {
         val intent = Intent().apply {
             action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
@@ -150,7 +180,12 @@ class BBManager(
         context.startActivity(intent)
     }
 
-    class BBPermissionRequestActivity : AppCompatActivity() {
+    /**
+     * A transparent, otherwise-invisible activity used to launch the system permission-request
+     * dialog and broadcast its result back to [BBManager]. Declared in BlueBreeze's manifest;
+     * not meant to be referenced or started directly by app code.
+     */
+    internal class BBPermissionRequestActivity : AppCompatActivity() {
         companion object {
             const val KEY = "BBPermissionRequestActivity.key"
             const val GRANTED = "BBPermissionRequestActivity.granted"
@@ -158,7 +193,7 @@ class BBManager(
             const val DENIED = "BBPermissionRequestActivity.denied"
         }
 
-        val permissionRequest = registerForActivityResult(
+        private val permissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { granted: Map<String, Boolean> ->
             val shouldShowRationale = granted.keys.map {
@@ -193,8 +228,9 @@ class BBManager(
 
     // region Capabilities
 
+    /** Whether this device's Bluetooth adapter supports extended LE advertising (larger/longer advertisements, secondary advertising channels). Always `false` below API 26. */
     val supportsExtended: Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.bluetoothAdapter?.isLeExtendedAdvertisingSupported ?: false
+        bluetoothAdapter(context)?.isLeExtendedAdvertisingSupported ?: false
     } else {
         false
     }
@@ -204,6 +240,8 @@ class BBManager(
     // region State
 
     private val _state = MutableSharedStateFlow(BBState.unknown)
+
+    /** The Bluetooth adapter's current power state. Scanning and connecting require [BBState.poweredOn]. */
     val state: StateFlow<BBState> get() = _state
 
     init {
@@ -223,7 +261,7 @@ class BBManager(
         }
 
         // Retrieve the current state
-        return when (context.bluetoothAdapter?.isEnabled) {
+        return when (bluetoothAdapter(context)?.isEnabled) {
             true -> BBState.poweredOn
             else -> BBState.poweredOff
         }
@@ -240,6 +278,13 @@ class BBManager(
     // region Devices
 
     private val _devices = MutableSharedStateFlow<Map<String, BBDevice>>(mapOf())
+
+    /**
+     * Every [BBDevice] discovered by a scan so far, keyed by MAC address. A device is added here
+     * the first time it's seen in a scan result and then reused for every subsequent sighting,
+     * connect, and disconnect -- use this (or [BBScanResult.device]) rather than constructing
+     * your own.
+     */
     val devices: StateFlow<Map<String, BBDevice>> get() = _devices
 
     // Guards the access to the devices map
@@ -250,12 +295,16 @@ class BBManager(
     // region Scan
 
     private val _scanEnabled = MutableSharedStateFlow(false)
+
+    /** Whether a scan is currently active. Reflects [scanStart]/[scanStop], and flips to `false` on its own if the adapter powers off or the system stops the scan for another reason. */
     val scanEnabled: StateFlow<Boolean> get() = _scanEnabled
 
     private val _scanResults = MutableSharedFlow<BBScanResult>(
         extraBufferCapacity = 16,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
+
+    /** Every advertisement seen while scanning, including repeats from the same peripheral. Only delivered to collectors while they're actively collecting -- there's no replay, unlike [devices]/[state]. */
     val scanResults: SharedFlow<BBScanResult> get() = _scanResults
 
     private val scanTimes: MutableList<Long> = ArrayList()
@@ -267,6 +316,20 @@ class BBManager(
     private var scanRequested = false
     private var scanServiceUUIDs: List<BBUUID>? = null
 
+    /**
+     * Starts scanning for BLE advertisements, updating [scanEnabled] and delivering results on
+     * [scanResults]. Returns immediately if already scanning.
+     *
+     * Automatically resumes with the same [serviceUUIDs] filter if the Bluetooth adapter is
+     * power-cycled while a scan is active -- you don't need to call this again after a
+     * [BBState.poweredOff]/[BBState.poweredOn] transition.
+     *
+     * @param serviceUUIDs restrict results to peripherals advertising at least one of these
+     * service UUIDs, or `null` to see every advertisement.
+     * @throws BBError.scan if called more than 5 times within a rolling 30-second window -- the
+     * system's own limit on `startScan` calls. The thrown error carries how many seconds remain
+     * before retrying is worthwhile.
+     */
     fun scanStart(
         context: Context,
         serviceUUIDs: List<BBUUID>? = null
@@ -306,7 +369,7 @@ class BBManager(
             scanTimes.add(currentTime)
         }
 
-        context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+        bluetoothLeScanner(context)?.startScan(scanFilters, scanSettings, scanCallback)
 
         scanRequested = true
         scanServiceUUIDs = serviceUUIDs
@@ -314,6 +377,7 @@ class BBManager(
         _scanEnabled.emit(true)
     }
 
+    /** Stops an active scan. Returns immediately if not currently scanning. */
     fun scanStop(context: Context) {
         scanRequested = false
         scanServiceUUIDs = null
@@ -322,11 +386,23 @@ class BBManager(
             return
         }
 
-        context.bluetoothLeScanner?.stopScan(scanCallback)
+        bluetoothLeScanner(context)?.stopScan(scanCallback)
         _scanEnabled.emit(false)
     }
 
     private val scanCallback: ScanCallback = object : ScanCallback() {
+        // Wraps this byte array in a little-endian ByteBuffer -- BLE advertisement data is
+        // little-endian throughout.
+        private fun ByteArray.byteBuffer(): ByteBuffer {
+            val byteBuffer = ByteBuffer.wrap(this)
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
+            return byteBuffer
+        }
+
+        // This byte as two uppercase hex digits (e.g. 0x0A -> "0A"), used to build UUID strings
+        // out of raw advertisement bytes.
+        private val Byte.hexString: String get() = toUByte().toString(16).uppercase().padStart(2, '0')
+
         private fun parseAdvertisedData(advertisedData: ByteArray): Map<UByte, ByteArray> {
             val result: MutableMap<UByte, ByteArray> = mutableMapOf()
 
@@ -448,6 +524,9 @@ class BBManager(
 
     // region Broadcast receiver
 
+    // Routes every broadcast this manager registered for (adapter state changes, and the
+    // permission-request result from BBPermissionRequestActivity) to the matching state update.
+    // Not meant to be called directly -- BroadcastReceiver requires this override to be public.
     override fun onReceive(context: Context?, intent: Intent?) {
         intent?.let {
             when (intent.action) {
@@ -493,30 +572,32 @@ class BBManager(
 
     // region Lifecycle
 
+    /**
+     * Unregisters every broadcast receiver this manager registered. Call this when the manager
+     * is no longer needed -- constructing another `BBManager` without calling this first leaks
+     * the receivers, and keeps delivering their broadcasts to the dead instance.
+     */
     fun close() {
         runCatching { appContext.unregisterReceiver(this) }
         authorizationReceiverRegistered = false
     }
 
-    // endregion
-}
+    // region Helpers
 
-val Context.sharedPreferences: SharedPreferences
-    get() = getSharedPreferences("BlueBreeze", Context.MODE_PRIVATE)
+    // BlueBreeze's own SharedPreferences file, used to remember which permissions have already
+    // been requested once.
+    private fun sharedPreferences(context: Context): SharedPreferences =
+        context.getSharedPreferences("BlueBreeze", Context.MODE_PRIVATE)
 
-val Context.bluetoothAdapter: BluetoothAdapter?
-    get() {
-        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    // context's BluetoothAdapter, or null if the device has no Bluetooth hardware.
+    private fun bluetoothAdapter(context: Context): BluetoothAdapter? {
+        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         return bluetoothManager?.adapter
     }
 
-val Context.bluetoothLeScanner: BluetoothLeScanner?
-    get() = bluetoothAdapter?.bluetoothLeScanner
+    // context's BluetoothLeScanner, or null if there's no adapter to get one from.
+    private fun bluetoothLeScanner(context: Context): BluetoothLeScanner? =
+        bluetoothAdapter(context)?.bluetoothLeScanner
 
-fun ByteArray.byteBuffer(): ByteBuffer {
-    val byteBuffer = ByteBuffer.wrap(this)
-    byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
-    return byteBuffer
+    // endregion
 }
-
-val Byte.hexString: String get() = toUByte().toString(16).uppercase().padStart(2, '0')

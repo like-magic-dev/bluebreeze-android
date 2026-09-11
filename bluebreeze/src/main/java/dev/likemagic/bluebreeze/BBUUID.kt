@@ -8,11 +8,21 @@ package dev.likemagic.bluebreeze
 import android.os.ParcelUuid
 import java.util.UUID
 
+/**
+ * A BLE UUID -- a thin wrapper around [java.util.UUID] that additionally understands the
+ * standard Bluetooth SIG short form (a 16-bit UUID embedded in the base BLE UUID,
+ * `0000xxxx-0000-1000-8000-00805F9B34FB`).
+ *
+ * Construct one with [fromString], which accepts either the 4-character short form
+ * (`"180F"`) or a full UUID string. [toString] does the reverse: it prints the short form for
+ * any UUID that has one, and the full UUID string otherwise.
+ */
 class BBUUID(
     val uuid: UUID
 ) {
     // region Equality interface
 
+    /** Equal to another [BBUUID], or to a raw [UUID], with the same underlying value. */
     override fun equals(other: Any?): Boolean {
         if (other is BBUUID) {
             return this.uuid == other.uuid
@@ -33,6 +43,7 @@ class BBUUID(
 
     // region String
 
+    /** The 4-character short form (e.g. `"180F"`) for a standard 16-bit BLE UUID, or the full UUID string otherwise. */
     override
     fun toString(): String {
         val result = uuid.toString().uppercase()
@@ -47,6 +58,7 @@ class BBUUID(
 
     // region Parcel UUID
 
+    /** This UUID as a [ParcelUuid], for Android APIs that require one (e.g. scan filters). */
     val parcelUUID: ParcelUuid
         get() = ParcelUuid(uuid)
 
@@ -59,6 +71,12 @@ class BBUUID(
         private const val UUID_PREFIX = "0000"
         private const val UUID_SUFFIX = "-0000-1000-8000-00805F9B34FB"
 
+        /**
+         * Builds a [BBUUID] from either a 4-character short-form UUID (`"180F"`) or a full
+         * UUID string (`"0000180f-0000-1000-8000-00805f9b34fb"`).
+         *
+         * @throws IllegalArgumentException if [uuidString] is neither.
+         */
         fun fromString(uuidString: String) = BBUUID(
             uuid = UUID.fromString(
                 if (uuidString.length == 4)

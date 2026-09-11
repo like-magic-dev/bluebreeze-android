@@ -11,9 +11,18 @@ import android.bluetooth.BluetoothGattCallback
 import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
-class BBOperationConnect(
+/**
+ * Opens (or confirms) a GATT connection to a peripheral, backing [dev.likemagic.bluebreeze.BBDevice.connect].
+ *
+ * If a `gatt` is already passed into [execute] (the device is already connected), resolves
+ * immediately without calling `connectGatt` again -- CoreBluetooth-equivalent platforms don't
+ * re-invoke a connection callback for an already-connected peripheral, so retrying here would
+ * just time out. Otherwise opens a new [BluetoothGatt] client and owns it until this operation
+ * resolves: [cancel] and every error path close it, so a timed-out, superseded, or failed
+ * attempt never leaks a native GATT client slot (Android caps these per process).
+ */
+internal class BBOperationConnect(
     private val gattCallback: BluetoothGattCallback
 ) : BBOperation<Unit>() {
     private var gatt: BluetoothGatt? = null
