@@ -11,6 +11,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.os.Build
 import androidx.annotation.RequiresApi
 import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
+import dev.likemagic.bluebreeze.operations.BBOperationQueue
 import dev.likemagic.bluebreeze.operations.BBOperationRead
 import dev.likemagic.bluebreeze.operations.BBOperationSubscribe
 import dev.likemagic.bluebreeze.operations.BBOperationUnsubscribe

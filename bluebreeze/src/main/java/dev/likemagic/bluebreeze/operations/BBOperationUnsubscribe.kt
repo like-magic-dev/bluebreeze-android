@@ -14,7 +14,6 @@ import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBConstants
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
 class BBOperationUnsubscribe(
     private val characteristic: BluetoothGattCharacteristic

@@ -11,7 +11,6 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
 class BBOperationWrite(
     private val characteristic: BluetoothGattCharacteristic,

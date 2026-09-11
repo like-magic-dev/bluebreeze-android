@@ -3,12 +3,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
 
-package dev.likemagic.bluebreeze
+package dev.likemagic.bluebreeze.operations
 
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.content.Context
+import dev.likemagic.bluebreeze.BBError
 import kotlin.coroutines.Continuation
 
 abstract class BBOperation<T> : BluetoothGattCallback() {

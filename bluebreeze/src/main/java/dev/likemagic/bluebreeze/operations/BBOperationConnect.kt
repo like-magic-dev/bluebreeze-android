@@ -11,7 +11,6 @@ import android.bluetooth.BluetoothGattCallback
 import android.content.Context
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
-import dev.likemagic.bluebreeze.BBOperation
 
 class BBOperationConnect(
     private val gattCallback: BluetoothGattCallback
