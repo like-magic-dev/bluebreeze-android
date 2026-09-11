@@ -25,6 +25,9 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
     // region Completion
 
     var continuation: Continuation<T>? = null
+
+    // Ensure no stale reads on completion flag
+    @Volatile
     var isComplete = false
 
     fun setSuccess(value: T) {
@@ -47,7 +50,7 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
         isComplete = true
     }
 
-    fun cancel() {
+    open fun cancel() {
         try {
             continuation?.resumeWith(Result.failure(BBError.operationCancelled()))
         } catch (e: IllegalStateException) {
@@ -81,14 +84,6 @@ abstract class BBOperation<T> : BluetoothGattCallback() {
             }
         }
     }
-
-    // endregion
-
-    // region Bluetooth callbacks
-
-    open fun onAclConnected() { }
-
-    open fun onAclDisconnected() { }
 
     // endregion
 }

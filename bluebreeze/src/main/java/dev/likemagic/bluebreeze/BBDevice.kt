@@ -12,14 +12,17 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
 import dev.likemagic.bluebreeze.operations.BBOperationConnect
 import dev.likemagic.bluebreeze.operations.BBOperationDisconnect
 import dev.likemagic.bluebreeze.operations.BBOperationDiscoverServices
 import dev.likemagic.bluebreeze.operations.BBOperationRequestMtu
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -28,12 +31,22 @@ import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.schedule
 import kotlin.coroutines.suspendCoroutine
+import kotlin.time.Duration.Companion.milliseconds
 
 class BBDevice(
     val context: Context,
     val device: BluetoothDevice,
 ) : BluetoothGattCallback(), BBOperationQueue {
+    // Keep GATT pointer volatile to avoid stale reads
+    @Volatile
     private var gatt: BluetoothGatt? = null
+
+    // Long-lived scope for delivering connection-state changes
+    private val callbackScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main + CoroutineExceptionHandler { _, e ->
+            Log.w(BBConstants.LOG_TAG, "GATT callback coroutine failed", e)
+        }
+    )
 
     // region Properties
 
@@ -68,28 +81,39 @@ class BBDevice(
 
     // region Operations
 
+    private val maxRetriesOnGattError = 3
+
     suspend fun connect() {
-        for (i in 0..2) {
+        for (i in 0..<maxRetriesOnGattError) {
+            delay((i * 1000L).milliseconds)
+
             try {
-                delay(i * 1000L)
                 return operationEnqueue(
                     BBOperationConnect(this)
                 )
             } catch (e: BBErrorGatt) {
-                if (e.code == BBErrorGatt.GATT_ERROR) {
-                    // We catch the GATT_ERROR (133) that occurs at times when connecting
-                    // and retry the connection at increasingly large time intervals
+                if (i == maxRetriesOnGattError-1) {
+                    // Last retry failed, throw error immediately
+                    throw e
+                } else if (e.code == BBErrorGatt.GATT_ERROR) {
+                    // We caught GATT_ERROR (133), which occurs at times when connecting;
+                    // retry the connection at increasingly large time intervals
                     continue
+                } else {
+                    // Other errors are thrown immediately
+                    throw e
                 }
             }
         }
     }
 
     suspend fun disconnect() {
-        operationCurrent?.cancel()
+        withOperationLock {
+            operationCurrent?.cancel()
 
-        operationQueue.forEach { it.cancel() }
-        operationQueue.clear()
+            operationQueue.forEach { it.cancel() }
+            operationQueue.clear()
+        }
 
         return operationEnqueue(
             BBOperationDisconnect()
@@ -112,35 +136,64 @@ class BBDevice(
 
     // region Operation queue
 
+    private val operationLock = Any()
     private val operationQueue = LinkedBlockingQueue<BBOperation<*>>()
     private var operationCurrent: BBOperation<*>? = null
+
+    // A shared Timer used to schedule every operation's timeout
+    private val operationTimer = Timer()
+
+    // operationCurrent/operationQueue are touched from several threads, so every access must go through this lock
+    private fun <R> withOperationLock(block: () -> R): R = synchronized(operationLock, block)
 
     override suspend fun <T> operationEnqueue(operation: BBOperation<T>): T =
         suspendCoroutine { continuation ->
             operation.continuation = continuation
 
-            operationQueue.add(operation)
+            withOperationLock {
+                operationQueue.add(operation)
+            }
             operationCheck()
         }
 
     private fun operationCheck() {
-        if (operationCurrent?.isComplete == false) {
+        val operation = withOperationLock {
+            if (operationCurrent?.isComplete == false) {
+                return@withOperationLock null
+            }
+            operationQueue.poll().also { operationCurrent = it }
+        } ?: return
+
+        operation.execute(context, device, gatt)
+
+        // execute() may have completed the operation synchronously
+        if (operation.isComplete) {
+            operationCheck()
             return
         }
 
-        operationCurrent = operationQueue.poll()
-        operationCurrent?.let { operation ->
-            operation.execute(
-                context,
-                device,
-                gatt,
-            )
-
-            Timer().schedule((operation.timeout * 1000).toLong()) {
+        operationTimer.schedule((operation.timeout * 1000).toLong()) {
+            try {
                 if (!operation.isComplete) {
                     operation.cancel()
+                    operationCheck()
                 }
+            } catch (e: Throwable) {
+                // Swallow all exceptions so the timer keeps running.
+                // The timer runs every scheduled task on a single background thread.
+                // If an exception escaped this task it would kill the timer thread.
+                Log.w(BBConstants.LOG_TAG, "Operation timeout handler failed", e)
             }
+        }
+    }
+
+    // endregion
+
+    // region Bluetooth callback
+
+    fun onAdapterStateChanged(state: BBState) {
+        if (state != BBState.poweredOn) {
+            connectionLost()
         }
     }
 
@@ -155,7 +208,7 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        CoroutineScope(Dispatchers.Main).launch {
+        callbackScope.launch {
             services.value.forEach { service ->
                 service.characteristics.forEach { characteristic ->
                     characteristic.onConnectionStateChange(gatt, status, newState)
@@ -167,33 +220,16 @@ class BBDevice(
                 _connectionStatus.emit(BBDeviceConnectionStatus.connected)
             }
 
-            operationCurrent?.onConnectionStateChange(gatt, status, newState)
+            withOperationLock {
+                operationCurrent?.onConnectionStateChange(gatt, status, newState)
+            }
+
+            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                connectionLost()
+            }
+
             operationCheck()
         }
-    }
-
-    fun onAclConnected() {
-        operationCurrent?.onAclConnected()
-        operationCheck()
-    }
-
-    fun onAclDisconnected() {
-        this.gatt?.close()
-        this.gatt = null
-
-        _connectionStatus.emit(BBDeviceConnectionStatus.disconnected)
-        _mtu.emit(BBConstants.DEFAULT_MTU)
-        _services.emit(emptyList())
-
-        operationCurrent?.onAclDisconnected()
-
-        operationCurrent?.cancel()
-        operationCurrent = null
-
-        operationQueue.forEach { it.cancel() }
-        operationQueue.clear()
-
-        operationCheck()
     }
 
     override fun onServicesDiscovered(
@@ -214,7 +250,9 @@ class BBDevice(
                     })
             })
 
-        operationCurrent?.onServicesDiscovered(gatt, status)
+        withOperationLock {
+            operationCurrent?.onServicesDiscovered(gatt, status)
+        }
         operationCheck()
     }
 
@@ -225,7 +263,9 @@ class BBDevice(
     ) {
         gatt ?: return
 
-        operationCurrent?.onMtuChanged(gatt, mtu, status)
+        withOperationLock {
+            operationCurrent?.onMtuChanged(gatt, mtu, status)
+        }
         operationCheck()
     }
 
@@ -241,7 +281,9 @@ class BBDevice(
 
         characteristic(descriptor.characteristic.uuid)?.onDescriptorRead(gatt, descriptor, status)
 
-        operationCurrent?.onDescriptorRead(gatt, descriptor, status)
+        withOperationLock {
+            operationCurrent?.onDescriptorRead(gatt, descriptor, status)
+        }
         operationCheck()
     }
 
@@ -256,7 +298,9 @@ class BBDevice(
             gatt, descriptor, status, value
         )
 
-        operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
+        withOperationLock {
+            operationCurrent?.onDescriptorRead(gatt, descriptor, status, value)
+        }
         operationCheck()
     }
 
@@ -270,7 +314,9 @@ class BBDevice(
 
         characteristic(descriptor.characteristic.uuid)?.onDescriptorWrite(gatt, descriptor, status)
 
-        operationCurrent?.onDescriptorWrite(gatt, descriptor, status)
+        withOperationLock {
+            operationCurrent?.onDescriptorWrite(gatt, descriptor, status)
+        }
         operationCheck()
     }
 
@@ -286,7 +332,9 @@ class BBDevice(
 
         characteristic(characteristic.uuid)?.onCharacteristicRead(gatt, characteristic, status)
 
-        operationCurrent?.onCharacteristicRead(gatt, characteristic, status)
+        withOperationLock {
+            operationCurrent?.onCharacteristicRead(gatt, characteristic, status)
+        }
         operationCheck()
     }
 
@@ -304,7 +352,9 @@ class BBDevice(
             status
         )
 
-        operationCurrent?.onCharacteristicRead(gatt, characteristic, value, status)
+        withOperationLock {
+            operationCurrent?.onCharacteristicRead(gatt, characteristic, value, status)
+        }
         operationCheck()
     }
 
@@ -318,7 +368,9 @@ class BBDevice(
 
         characteristic(characteristic.uuid)?.onCharacteristicWrite(gatt, characteristic, status)
 
-        operationCurrent?.onCharacteristicWrite(gatt, characteristic, status)
+        withOperationLock {
+            operationCurrent?.onCharacteristicWrite(gatt, characteristic, status)
+        }
         operationCheck()
     }
 
@@ -333,7 +385,9 @@ class BBDevice(
 
         characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic)
 
-        operationCurrent?.onCharacteristicChanged(gatt, characteristic)
+        withOperationLock {
+            operationCurrent?.onCharacteristicChanged(gatt, characteristic)
+        }
         operationCheck()
     }
 
@@ -345,7 +399,32 @@ class BBDevice(
     ) {
         characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic, value)
 
-        operationCurrent?.onCharacteristicChanged(gatt, characteristic, value)
+        withOperationLock {
+            operationCurrent?.onCharacteristicChanged(gatt, characteristic, value)
+        }
+        operationCheck()
+    }
+
+    // endregion
+
+    // region Connection state handling
+
+    // Forces this device into the disconnected state and tears down its GATT client
+    private fun connectionLost() {
+        gatt?.close()
+        gatt = null
+
+        _connectionStatus.emit(BBDeviceConnectionStatus.disconnected)
+        _mtu.emit(BBConstants.DEFAULT_MTU)
+        _services.emit(emptyList())
+
+        withOperationLock {
+            operationCurrent?.cancel()
+            operationCurrent = null
+
+            operationQueue.forEach { it.cancel() }
+            operationQueue.clear()
+        }
         operationCheck()
     }
 

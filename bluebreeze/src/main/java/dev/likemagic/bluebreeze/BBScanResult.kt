@@ -31,8 +31,11 @@ data class BBScanResult(
     val manufacturerId: Int?
         get() {
             val manufacturerData = manufacturerData ?: return null
-            return (manufacturerData[1].toUByte().toInt() shl 8) or (manufacturerData[0].toUByte()
-                .toInt())
+            if (manufacturerData.size < 2) return null
+
+            val manufacturerDataLow = manufacturerData[0].toUByte().toInt()
+            val manufacturerDataHigh = manufacturerData[1].toUByte().toInt()
+            return (manufacturerDataHigh shl 8) or (manufacturerDataLow)
         }
 
     val manufacturerName: String?

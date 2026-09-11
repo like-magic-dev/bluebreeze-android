@@ -8,7 +8,6 @@ package dev.likemagic.bluebreeze
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -41,6 +40,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 class BBManager(
     context: Context,
 ) : BroadcastReceiver() {
+    private val appContext: Context = context.applicationContext
+
     // region Permissions
 
     private val _authorizationStatus = MutableSharedStateFlow(BBAuthorization.unknown)
@@ -60,18 +61,6 @@ class BBManager(
 
     init {
         _authorizationStatus.emit(authorizationCheck(context))
-
-        // Register a broadcast receiver for ACL connection events
-        val intentFilter = IntentFilter().apply {
-            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
-            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(this, intentFilter, Context.RECEIVER_EXPORTED)
-        } else {
-            context.registerReceiver(this, intentFilter)
-        }
     }
 
     private fun authorizationCheck(context: Context): BBAuthorization {
@@ -105,20 +94,34 @@ class BBManager(
         return BBAuthorization.denied
     }
 
-    fun authorizationRequest(context: Context) {
+    private var authorizationReceiverRegistered = false
+
+    // Register a broadcast receiver once
+    private fun authorizationRegisterReceiver() {
+        // Already registered
+        if (authorizationReceiverRegistered) {
+            return
+        }
+
         // Setup a broadcast intent filter
         val intentFilter = IntentFilter()
         intentFilter.addAction(BBPermissionRequestActivity.GRANTED)
         intentFilter.addAction(BBPermissionRequestActivity.SHOW_RATIONALE)
         intentFilter.addAction(BBPermissionRequestActivity.DENIED)
 
-        // Register a broadcast receiver
         @SuppressLint("UnspecifiedRegisterReceiverFlag")
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(this, intentFilter)
+            appContext.registerReceiver(this, intentFilter)
         } else {
-            context.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
+            appContext.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
         }
+
+        authorizationReceiverRegistered = true
+    }
+
+    fun authorizationRequest(context: Context) {
+        // Register a broadcast receiver
+        authorizationRegisterReceiver()
 
         // Start the hidden activity to request permissions
         val intent = Intent(context, BBPermissionRequestActivity::class.java)
@@ -214,9 +217,9 @@ class BBManager(
 
         // Register a broadcast receiver
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
+            appContext.registerReceiver(this, intentFilter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            context.registerReceiver(this, intentFilter)
+            appContext.registerReceiver(this, intentFilter)
         }
 
         // Retrieve the current state
@@ -226,12 +229,21 @@ class BBManager(
         }
     }
 
+    // Publishes the new adapter state and pushes it down to every known device
+    private fun updateState(state: BBState) {
+        _state.emit(state)
+        devices.value.values.forEach { it.onAdapterStateChanged(state) }
+    }
+
     // endregion
 
     // region Devices
 
     private val _devices = MutableSharedStateFlow<Map<String, BBDevice>>(mapOf())
     val devices: StateFlow<Map<String, BBDevice>> get() = _devices
+
+    // Guards the access to the devices map
+    private val devicesLock = Any()
 
     // end region
 
@@ -247,6 +259,13 @@ class BBManager(
     val scanResults: SharedFlow<BBScanResult> get() = _scanResults
 
     private val scanTimes: MutableList<Long> = ArrayList()
+    private val scanTimesLock = Any()
+    private val scanWindowMillis = 30_000L
+    private val scanWindowMaxStarts = 5
+
+    // Remembers the last scan request and the optional service UUIDs
+    private var scanRequested = false
+    private var scanServiceUUIDs: List<BBUUID>? = null
 
     fun scanStart(
         context: Context,
@@ -273,29 +292,32 @@ class BBManager(
                 .build()
         }
 
-        // When scanning more than 5 times in 30 seconds, the system will block our app from scanning.
-        // We need to catch this condition and prevent calling *startScan* below.
-        val currentTime = System.currentTimeMillis()
-        if (scanTimes.size < 5) {
-            scanTimes.add(currentTime)
-        } else {
-            val deltaTime = (currentTime - scanTimes[0])
-
-            // We throw an exception so that the app code can restart scanning after the specified time
-            if (deltaTime < 30000) {
-                val timeToWait = 30f - (deltaTime * 0.001f)
+        // The system blocks an app that calls startScan more than [scanWindowMaxStarts] times
+        // within [scanWindowMillis] milliseconds. Keep track of all recent starts and throw
+        // early with BBError.scan so the caller can back off.
+        // BBError.scan carries a time-to-wait value which can be used at application level.
+        synchronized(scanTimesLock) {
+            val currentTime = System.currentTimeMillis()
+            scanTimes.removeAll { currentTime - it >= scanWindowMillis }
+            if (scanTimes.size >= scanWindowMaxStarts) {
+                val timeToWait = (scanWindowMillis - (currentTime - scanTimes.first())) * 0.001f
                 throw BBError.scan(timeToWait)
             }
-
-            scanTimes.removeAt(0)
             scanTimes.add(currentTime)
         }
 
         context.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+
+        scanRequested = true
+        scanServiceUUIDs = serviceUUIDs
+
         _scanEnabled.emit(true)
     }
 
     fun scanStop(context: Context) {
+        scanRequested = false
+        scanServiceUUIDs = null
+
         if (!scanEnabled.value) {
             return
         }
@@ -309,7 +331,7 @@ class BBManager(
             val result: MutableMap<UByte, ByteArray> = mutableMapOf()
 
             val buffer = advertisedData.byteBuffer()
-            while (buffer.remaining() > 2) {
+            while (buffer.remaining() >= 2) {
                 val length = buffer.get().toInt()
                 if (length == 0) {
                     break
@@ -376,15 +398,11 @@ class BBManager(
 
 
         private fun processScanResult(result: ScanResult) {
-            val device = devices.value[result.device.address] ?: BBDevice(context, result.device)
-
-            // Update the devices
-            if (devices.value[result.device.address] == null) {
-                _devices.emit(
-                    devices.value.toMutableMap().apply {
-                        this[device.address] = device
-                    }
-                )
+            // Update the devices, synchronized to prevent concurrent modifications to the map
+            val device = synchronized(devicesLock) {
+                devices.value[result.device.address] ?: BBDevice(context, result.device).also { newDevice ->
+                    _devices.emit(devices.value + (result.device.address to newDevice))
+                }
             }
 
             // Compute scan result properties
@@ -448,37 +466,39 @@ class BBManager(
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
                         BluetoothAdapter.STATE_OFF -> {
-                            _state.emit(BBState.poweredOff)
+                            updateState(BBState.poweredOff)
+
+                            // The OS drops any active scan when the adapter powers off
+                            _scanEnabled.emit(false)
                         }
 
                         BluetoothAdapter.STATE_ON -> {
-                            _state.emit(BBState.poweredOn)
+                            updateState(BBState.poweredOn)
+
+                            // Resume a scan that was running before the power cycle
+                            if (scanRequested) {
+                                runCatching { scanStart(appContext, scanServiceUUIDs) }
+                            }
                         }
 
                         BluetoothAdapter.STATE_TURNING_ON -> {}
                         BluetoothAdapter.STATE_TURNING_OFF -> {}
                     }
                 }
-
-                BluetoothDevice.ACTION_ACL_CONNECTED, BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
-                    val intentDevice = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                    }
-
-                    val bbDevice = devices.value[intentDevice?.address]
-
-                    if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) {
-                        bbDevice?.onAclConnected()
-                    } else {
-                        bbDevice?.onAclDisconnected()
-                    }
-                }
             }
         }
     }
+
+    // endregion
+
+    // region Lifecycle
+
+    fun close() {
+        runCatching { appContext.unregisterReceiver(this) }
+        authorizationReceiverRegistered = false
+    }
+
+    // endregion
 }
 
 val Context.sharedPreferences: SharedPreferences
