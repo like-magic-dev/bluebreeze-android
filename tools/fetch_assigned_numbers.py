@@ -45,7 +45,7 @@ package dev.likemagic.bluebreeze
  *
  * Auto-generated. Do not edit by hand.
  */
-internal object BBAssignedNumbers {
+object BBAssignedNumbers {
 """
 
 
