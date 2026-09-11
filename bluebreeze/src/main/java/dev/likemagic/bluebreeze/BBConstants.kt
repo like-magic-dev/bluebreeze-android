@@ -71,6 +71,6 @@ object BBConstants {
         const val MANUFACTURER: UByte = 0xFFu
     }
 
-    /** The BLE-minimum ATT MTU (23 bytes), used as [BBDevice.mtu]'s initial value until [BBDevice.requestMTU] negotiates a larger one. */
+    /** The BLE-minimum ATT MTU (23 bytes), used as [BBDevice.mtu]'s initial value until [BBDevice.requestMtu] negotiates a larger one. */
     const val DEFAULT_MTU: Int = 23
 }

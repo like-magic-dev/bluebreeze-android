@@ -112,7 +112,7 @@ fun DeviceView(
                                         try {
                                             device.connect()
                                             device.discoverServices()
-                                            device.requestMTU(255)
+                                            device.requestMtu(255)
                                         } catch (e: BBError) {
                                             // Ignore error
                                         }

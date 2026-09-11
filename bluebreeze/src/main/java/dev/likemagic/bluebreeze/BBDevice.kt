@@ -38,7 +38,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * you get one from [BBManager.devices] or [BBScanResult.device]. The same instance is reused
  * across repeated discoveries, connects, and disconnects of the same physical peripheral.
  *
- * All BLE operations ([connect], [disconnect], [discoverServices], [requestMTU], and the
+ * All BLE operations ([connect], [disconnect], [discoverServices], [requestMtu], and the
  * read/write/subscribe methods on [BBCharacteristic]) are queued and executed one at a time per
  * device, in call order, each with a 5-second timeout -- you don't need to serialize calls
  * yourself, just call the suspend functions.
@@ -109,7 +109,7 @@ class BBDevice internal constructor(
 
     private val _mtu = MutableSharedStateFlow(BBConstants.DEFAULT_MTU)
 
-    /** The negotiated ATT MTU in bytes -- the largest amount of data that fits in a single read/write. [BBConstants.DEFAULT_MTU] (23) until [requestMTU] is called and awaited. */
+    /** The negotiated ATT MTU in bytes -- the largest amount of data that fits in a single read/write. [BBConstants.DEFAULT_MTU] (23) until [requestMtu] is called and awaited. */
     val mtu: StateFlow<Int> get() = _mtu
 
     // endregion
@@ -188,7 +188,7 @@ class BBDevice internal constructor(
      * @return the negotiated MTU size.
      * @throws BBError if the request fails or times out.
      */
-    suspend fun requestMTU(mtu: Int): Int {
+    suspend fun requestMtu(mtu: Int): Int {
         return operationEnqueue(
             BBOperationRequestMtu(mtu)
         )

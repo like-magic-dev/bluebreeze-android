@@ -10,7 +10,7 @@ import android.bluetooth.BluetoothGatt
 import android.content.Context
 import dev.likemagic.bluebreeze.BBError
 
-/** Requests a larger ATT MTU, backing [dev.likemagic.bluebreeze.BBDevice.requestMTU]. Resolves with the MTU size the peripheral actually negotiated, which may be smaller than requested. */
+/** Requests a larger ATT MTU, backing [dev.likemagic.bluebreeze.BBDevice.requestMtu]. Resolves with the MTU size the peripheral actually negotiated, which may be smaller than requested. */
 internal class BBOperationRequestMtu(private val mtu: Int) : BBOperation<Int>() {
     override fun execute(
         context: Context,
