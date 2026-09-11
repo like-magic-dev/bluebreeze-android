@@ -22,7 +22,15 @@ import kotlinx.coroutines.launch
 class MainViewModel(
     context: Context,
 ) : ViewModel() {
-    internal val manager = BBManager(context)
+    internal val manager: BBManager
+
+    init {
+        manager = BBManager(context)
+    }
+
+    fun close() {
+        manager.close()
+    }
 
     val authorizationStatus = manager.authorizationStatus.stateIn(
         scope = viewModelScope,

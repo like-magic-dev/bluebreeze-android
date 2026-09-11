@@ -43,6 +43,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        viewModel.close()
+        super.onDestroy()
+    }
 }
 
 sealed class Route(val route: String) {
