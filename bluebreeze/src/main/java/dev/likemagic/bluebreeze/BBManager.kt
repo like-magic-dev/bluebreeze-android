@@ -366,10 +366,13 @@ class BBManager(
                 val timeToWait = (scanWindowMillis - (currentTime - scanTimes.first())) * 0.001f
                 throw BBError.scan(timeToWait)
             }
-            scanTimes.add(currentTime)
-        }
 
-        bluetoothLeScanner(context)?.startScan(scanFilters, scanSettings, scanCallback)
+            val scanner = bluetoothLeScanner(context)
+            if (scanner != null) {
+                scanner.startScan(scanFilters, scanSettings, scanCallback)
+                scanTimes.add(currentTime)
+            }
+        }
 
         scanRequested = true
         scanServiceUUIDs = serviceUUIDs

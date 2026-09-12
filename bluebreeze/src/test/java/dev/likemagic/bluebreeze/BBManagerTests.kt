@@ -5,6 +5,9 @@
 
 package dev.likemagic.bluebreeze
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -21,11 +24,22 @@ import org.mockito.kotlin.whenever
 
 class BBManagerTests {
     private lateinit var context: Context
+    private lateinit var bluetoothLeScanner: BluetoothLeScanner
 
     @Before
     fun setUp() {
         context = mock()
         whenever(context.applicationContext).thenReturn(context)
+
+        // scanStart's throttle-window bookkeeping only counts an attempt once the native scan
+        // call actually goes out, so tests exercising it need a real (mocked) scanner chain --
+        // otherwise bluetoothLeScanner(context) resolves to null and nothing gets counted.
+        bluetoothLeScanner = mock()
+        val bluetoothAdapter: BluetoothAdapter = mock()
+        whenever(bluetoothAdapter.bluetoothLeScanner).thenReturn(bluetoothLeScanner)
+        val bluetoothManager: BluetoothManager = mock()
+        whenever(bluetoothManager.adapter).thenReturn(bluetoothAdapter)
+        whenever(context.getSystemService(Context.BLUETOOTH_SERVICE)).thenReturn(bluetoothManager)
     }
 
     // authorizationCheck() (called from BBManager's init block) is private, so every test that
