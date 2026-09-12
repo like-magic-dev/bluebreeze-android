@@ -23,7 +23,7 @@ internal class BBOperationRequestMtu(private val mtu: Int) : BBOperation<Int>() 
         }
 
         if (!gatt.requestMtu(mtu)) {
-            setError(BBError.gattError(-1))
+            setError(BBError.gattError())
         }
     }
 

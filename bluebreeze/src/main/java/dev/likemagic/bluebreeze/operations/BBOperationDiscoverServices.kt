@@ -23,7 +23,7 @@ internal class BBOperationDiscoverServices : BBOperation<Unit>() {
         }
 
         if (!gatt.discoverServices()) {
-            setError(BBError.gattError(-1))
+            setError(BBError.gattError())
         }
     }
 
