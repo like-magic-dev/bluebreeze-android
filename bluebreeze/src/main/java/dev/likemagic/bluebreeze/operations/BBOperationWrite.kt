@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
+import android.bluetooth.BluetoothStatusCodes
 import android.os.Build
 import dev.likemagic.bluebreeze.BBError
 
@@ -37,13 +38,13 @@ internal class BBOperationWrite(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             characteristic.value = data
             characteristic.writeType = writeType
-            gatt.writeCharacteristic(characteristic)
+            if (!gatt.writeCharacteristic(characteristic)) {
+                setError(BBError.gattError())
+            }
         } else {
-            gatt.writeCharacteristic(
-                characteristic,
-                data,
-                writeType
-            )
+            if (gatt.writeCharacteristic(characteristic, data, writeType) != BluetoothStatusCodes.SUCCESS) {
+                setError(BBError.gattError())
+            }
         }
     }
 

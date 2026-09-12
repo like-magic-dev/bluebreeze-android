@@ -31,7 +31,9 @@ internal class BBOperationRead(
             return
         }
 
-        gatt.readCharacteristic(characteristic)
+        if (!gatt.readCharacteristic(characteristic)) {
+            setError(BBError.gattError())
+        }
     }
 
     @Suppress("DEPRECATION")
