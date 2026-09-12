@@ -140,6 +140,7 @@ class BBCharacteristic internal constructor(
     ) {
         gatt ?: return
         characteristic ?: return
+        if (status != BluetoothGatt.GATT_SUCCESS) return
 
         _data.emit(characteristic.value ?: byteArrayOf())
     }
@@ -151,6 +152,8 @@ class BBCharacteristic internal constructor(
         value: ByteArray,
         status: Int
     ) {
+        if (status != BluetoothGatt.GATT_SUCCESS) return
+
         _data.emit(value)
     }
 
