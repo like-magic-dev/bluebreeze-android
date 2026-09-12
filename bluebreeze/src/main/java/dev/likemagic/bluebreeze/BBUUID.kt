@@ -22,7 +22,12 @@ class BBUUID(
 ) {
     // region Equality interface
 
-    /** Equal to another [BBUUID], or to a raw [UUID], with the same underlying value. */
+    /**
+     * Equal to another [BBUUID], or to a raw [UUID], with the same underlying value.
+     *
+     * Note: this is an intentionally asymmetric equals: `BBUUID(...) == someUUID` can be `true`,
+     * but `someUUID == BBUUID(...)` is always `false`. Safe if you always use [BBUUID].
+     */
     override fun equals(other: Any?): Boolean {
         if (other is BBUUID) {
             return this.uuid == other.uuid
