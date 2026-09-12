@@ -78,9 +78,8 @@ internal class BBOperationSubscribe(
             return
         }
 
-        if (descriptor.uuid != BBConstants.UUID.cccd) {
-            return
-        }
+        if (descriptor.characteristic !== characteristic) return
+        if (descriptor.uuid != BBConstants.UUID.cccd) return
 
         if (status == BluetoothGatt.GATT_SUCCESS) {
             setSuccess(Unit)

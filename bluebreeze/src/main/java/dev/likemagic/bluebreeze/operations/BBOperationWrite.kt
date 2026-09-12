@@ -53,6 +53,8 @@ internal class BBOperationWrite(
         characteristic: BluetoothGattCharacteristic?,
         status: Int
     ) {
+        if (characteristic !== this.characteristic) return
+
         if (status == BluetoothGatt.GATT_SUCCESS) {
             setSuccess(Unit)
         } else {

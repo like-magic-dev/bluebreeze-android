@@ -43,8 +43,10 @@ internal class BBOperationRead(
         characteristic: BluetoothGattCharacteristic?,
         status: Int
     ) {
+        if (characteristic !== this.characteristic) return
+
         if (status == BluetoothGatt.GATT_SUCCESS) {
-            val value = characteristic?.value
+            val value = characteristic.value
             setSuccess(value ?: byteArrayOf())
         } else {
             setError(BBError.gattError(status))
@@ -57,6 +59,8 @@ internal class BBOperationRead(
         value: ByteArray,
         status: Int
     ) {
+        if (characteristic !== this.characteristic) return
+
         if (status == BluetoothGatt.GATT_SUCCESS) {
             setSuccess(value)
         } else {
