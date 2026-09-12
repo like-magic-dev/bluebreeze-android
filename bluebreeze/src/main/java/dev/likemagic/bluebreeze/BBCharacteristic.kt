@@ -178,5 +178,16 @@ class BBCharacteristic internal constructor(
         _data.emit(value)
     }
 
+    override fun onConnectionStateChange(
+        gatt: BluetoothGatt?,
+        status: Int,
+        newState: Int
+    ) {
+        if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+            _data.emit(byteArrayOf())
+            _isNotifying.emit(false)
+        }
+    }
+
     // endregion
 }
