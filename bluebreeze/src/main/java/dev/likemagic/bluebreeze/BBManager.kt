@@ -24,6 +24,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -560,6 +561,9 @@ class BBManager(
                             // Resume a scan that was running before the power cycle
                             if (scanRequested) {
                                 runCatching { scanStart(appContext, scanServiceUUIDs) }
+                                    .onFailure {
+                                        Log.w(BBConstants.LOG_TAG, "Failed to resume scan after adapter power-cycle", it)
+                                    }
                             }
                         }
 
