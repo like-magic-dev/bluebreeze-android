@@ -290,7 +290,7 @@ class BBManager(
     // Guards the access to the devices map
     private val devicesLock = Any()
 
-    // end region
+    // endregion
 
     // region Scan
 
