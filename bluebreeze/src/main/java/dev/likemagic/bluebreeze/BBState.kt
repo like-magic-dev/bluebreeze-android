@@ -15,9 +15,6 @@ enum class BBState {
     /** The state hasn't been determined yet -- the initial value before the first broadcast. */
     unknown,
 
-    /** Reserved for a future permissions-driven state; not currently set by [BBManager]. */
-    unauthorized,
-
     /** Bluetooth is turned off. Scanning and connecting are unavailable until it's powered on. */
     poweredOff,
 
