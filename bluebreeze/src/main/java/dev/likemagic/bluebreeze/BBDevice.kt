@@ -331,70 +331,70 @@ class BBDevice internal constructor(
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicRead(
         gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
+        gattCharacteristic: BluetoothGattCharacteristic?,
         status: Int
     ) {
         gatt ?: return
-        characteristic ?: return
+        gattCharacteristic ?: return
 
-        characteristic(characteristic.uuid)?.onCharacteristicRead(gatt, characteristic, status)
+        characteristic(gattCharacteristic.uuid)?.onCharacteristicRead(gatt, gattCharacteristic, status)
 
-        operationQueue.onCharacteristicRead(gatt, characteristic, status)
+        operationQueue.onCharacteristicRead(gatt, gattCharacteristic, status)
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCharacteristicRead(
         gatt: BluetoothGatt,
-        characteristic: BluetoothGattCharacteristic,
+        gattCharacteristic: BluetoothGattCharacteristic,
         value: ByteArray,
         status: Int
     ) {
-        characteristic(characteristic.uuid)?.onCharacteristicRead(
+        characteristic(gattCharacteristic.uuid)?.onCharacteristicRead(
             gatt,
-            characteristic,
+            gattCharacteristic,
             value,
             status
         )
 
-        operationQueue.onCharacteristicRead(gatt, characteristic, value, status)
+        operationQueue.onCharacteristicRead(gatt, gattCharacteristic, value, status)
     }
 
     override fun onCharacteristicWrite(
         gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?,
+        gattCharacteristic: BluetoothGattCharacteristic?,
         status: Int
     ) {
         gatt ?: return
-        characteristic ?: return
+        gattCharacteristic ?: return
 
-        characteristic(characteristic.uuid)?.onCharacteristicWrite(gatt, characteristic, status)
+        characteristic(gattCharacteristic.uuid)?.onCharacteristicWrite(gatt, gattCharacteristic, status)
 
-        operationQueue.onCharacteristicWrite(gatt, characteristic, status)
+        operationQueue.onCharacteristicWrite(gatt, gattCharacteristic, status)
     }
 
     @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt?,
-        characteristic: BluetoothGattCharacteristic?
+        gattCharacteristic: BluetoothGattCharacteristic?
     ) {
         gatt ?: return
-        characteristic ?: return
+        gattCharacteristic ?: return
 
-        characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic)
+        characteristic(gattCharacteristic.uuid)?.onCharacteristicChanged(gatt, gattCharacteristic)
 
-        operationQueue.onCharacteristicChanged(gatt, characteristic)
+        operationQueue.onCharacteristicChanged(gatt, gattCharacteristic)
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt,
-        characteristic: BluetoothGattCharacteristic,
+        gattCharacteristic: BluetoothGattCharacteristic,
         value: ByteArray
     ) {
-        characteristic(characteristic.uuid)?.onCharacteristicChanged(gatt, characteristic, value)
+        characteristic(gattCharacteristic.uuid)?.onCharacteristicChanged(gatt, gattCharacteristic, value)
 
-        operationQueue.onCharacteristicChanged(gatt, characteristic, value)
+        operationQueue.onCharacteristicChanged(gatt, gattCharacteristic, value)
     }
 
     // endregion
