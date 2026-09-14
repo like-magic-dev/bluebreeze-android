@@ -13,6 +13,7 @@ import java.nio.charset.Charset
  * de-duplicate scan results, only [BBManager.devices]). You never construct one yourself -- you
  * get one from [BBManager.scanResults].
  */
+@ConsistentCopyVisibility
 data class BBScanResult internal constructor(
     val device: BBDevice,
     val rssi: Int,
