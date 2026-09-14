@@ -164,7 +164,7 @@ class BBDevice internal constructor(
         operationQueue.cancelAll()
 
         return operationEnqueue(
-            BBOperationDisconnect()
+            BBOperationDisconnect(operationQueue)
         )
     }
 

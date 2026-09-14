@@ -25,6 +25,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 
 class BBDeviceTests {
@@ -110,6 +111,49 @@ class BBDeviceTests {
         assertTrue(error is BBErrorGatt)
         assertEquals(8, (error as BBErrorGatt).code)
         verify(nativeDevice, times(1)).connectGatt(any(), any(), any())
+    }
+
+    @Test
+    fun `disconnect then connect again opens a real new GATT connection, not the already-connected fast path`() = runTest(testDispatcher) {
+        val firstGatt = mock<BluetoothGatt>()
+        whenever(nativeDevice.connectGatt(any(), any(), any())).thenReturn(firstGatt)
+
+        val connectResult = async { device.connect() }
+        advanceUntilIdle()
+        device.onConnectionStateChange(firstGatt, BluetoothGatt.GATT_SUCCESS, BluetoothGatt.STATE_CONNECTED)
+        advanceUntilIdle()
+        connectResult.await()
+
+        val disconnectResult = async { device.disconnect() }
+        advanceUntilIdle()
+        verify(firstGatt).disconnect()
+        device.onConnectionStateChange(firstGatt, BluetoothGatt.GATT_SUCCESS, BluetoothGatt.STATE_DISCONNECTED)
+        advanceUntilIdle()
+        disconnectResult.await()
+        assertEquals(BBDeviceConnectionStatus.disconnected, device.connectionStatus.value)
+
+        val secondGatt = mock<BluetoothGatt>()
+        whenever(nativeDevice.connectGatt(any(), any(), any())).thenReturn(secondGatt)
+
+        val secondConnectResult = async { device.connect() }
+        advanceUntilIdle()
+        device.onConnectionStateChange(secondGatt, BluetoothGatt.GATT_SUCCESS, BluetoothGatt.STATE_CONNECTED)
+        advanceUntilIdle()
+        secondConnectResult.await()
+
+        // A real second connectGatt() call -- not the "already connected" fast path a leaked,
+        // stale gatt reference would otherwise trigger.
+        verify(nativeDevice, times(2)).connectGatt(any(), any(), any())
+        assertEquals(BBDeviceConnectionStatus.connected, device.connectionStatus.value)
+    }
+
+    @Test
+    fun `disconnect succeeds immediately when the device is already disconnected`() = runTest(testDispatcher) {
+        val result = async { runCatching { device.disconnect() } }
+        advanceUntilIdle()
+
+        assertTrue(result.await().isSuccess)
+        verifyNoInteractions(nativeDevice)
     }
 
     @Test

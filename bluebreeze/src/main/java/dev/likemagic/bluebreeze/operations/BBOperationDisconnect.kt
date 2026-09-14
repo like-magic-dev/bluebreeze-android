@@ -11,18 +11,27 @@ import android.content.Context
 import dev.likemagic.bluebreeze.BBError
 
 /** Disconnects from a peripheral, backing [dev.likemagic.bluebreeze.BBDevice.disconnect]. */
-internal class BBOperationDisconnect : BBOperation<Unit>() {
+internal class BBOperationDisconnect(
+    private val operationQueue: BBOperationQueue,
+) : BBOperation<Unit>() {
     override fun execute(
         context: Context,
         device: BluetoothDevice,
         gatt: BluetoothGatt?,
     ) {
         gatt ?: run {
-            setError(BBError.gattDisconnected())
+            // If there's no GATT to disconnect (already disconnected), resolve immediately with success
+            setSuccess(Unit)
             return
         }
 
         gatt.disconnect()
+    }
+
+    override fun cancel() {
+        // Force close the GATT if the native client never confirmed the disconnect (peripheral unresponsive)
+        operationQueue.closeGatt()
+        super.cancel()
     }
 
     override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {

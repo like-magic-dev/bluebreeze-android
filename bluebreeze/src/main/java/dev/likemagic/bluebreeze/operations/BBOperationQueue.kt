@@ -98,6 +98,14 @@ internal class BBOperationQueue(
     }
 
     /**
+     * Closes and clears an open [gatt].
+     */
+    fun closeGatt() {
+        gatt?.close()
+        gatt = null
+    }
+
+    /**
      * Cancels the in-flight operation (if any) and every operation still waiting, without
      * touching [gatt] -- used ahead of a `disconnect()` call, which enqueues its own operation
      * right after.
@@ -115,8 +123,7 @@ internal class BBOperationQueue(
      * when the connection is lost unexpectedly, rather than via a clean disconnect.
      */
     fun reset() {
-        gatt?.close()
-        gatt = null
+        closeGatt()
 
         withOperationLock {
             operationCurrent?.cancel()
@@ -134,8 +141,9 @@ internal class BBOperationQueue(
     // current operation and then check whether the next queued operation can start.
 
     fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-        if (newState == BluetoothGatt.STATE_CONNECTED) {
-            this.gatt = gatt
+        when (newState) {
+            BluetoothGatt.STATE_CONNECTED -> this.gatt = gatt
+            BluetoothGatt.STATE_DISCONNECTED -> closeGatt()
         }
 
         withOperationLock {
