@@ -53,7 +53,7 @@ android {
 
 dependencies {
     implementation(libs.jetbrains.kotlinx.coroutines.core)
-    implementation(libs.appcompat.v7)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.activity.ktx)
 
