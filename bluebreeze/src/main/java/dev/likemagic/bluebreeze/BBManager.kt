@@ -25,8 +25,8 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import dev.likemagic.bluebreeze.flows.MutableSharedStateFlow
@@ -186,7 +186,7 @@ class BBManager(
      * dialog and broadcast its result back to [BBManager]. Declared in BlueBreeze's manifest;
      * not meant to be referenced or started directly by app code.
      */
-    internal class BBPermissionRequestActivity : AppCompatActivity() {
+    internal class BBPermissionRequestActivity : ComponentActivity() {
         companion object {
             const val KEY = "BBPermissionRequestActivity.key"
             const val GRANTED = "BBPermissionRequestActivity.granted"
