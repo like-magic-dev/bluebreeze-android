@@ -4665,6 +4665,8 @@ object BBAssignedNumbers {
             4381 to "Commodore International Corporation",
             4382 to "DS TAGS Group B.V.",
             4383 to "iAppliance Inc.",
+            4384 to "PI-CRYSTAL INC.",
+            4385 to "ennos ag",
         )
 
     }

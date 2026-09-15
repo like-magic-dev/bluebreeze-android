@@ -1,3 +1,8 @@
+# 1.0.2
+
+Optimisation to the permissions activity, removed any unnecessary dependencies that would leak
+into the client application.
+
 # 1.0.1
 
 Mainly connection reliability fixes.
