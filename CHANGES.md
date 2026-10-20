@@ -1,3 +1,7 @@
+# 1.0.3
+
+- Add `notifications` property to `BBCharacteristic` as a pure data stream without replay.
+
 # 1.0.2
 
 Optimisation to the permissions activity, removed any unnecessary dependencies that would leak
