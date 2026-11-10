@@ -348,6 +348,10 @@ class BBManager(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
             }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && supportsExtended) {
+                setLegacy(false)
+            }
         }.build()
 
         val scanFilters = serviceUUIDs?.map {
