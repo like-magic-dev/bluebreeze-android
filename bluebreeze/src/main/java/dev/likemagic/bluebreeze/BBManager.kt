@@ -229,11 +229,12 @@ class BBManager(
     // region Capabilities
 
     /** Whether this device's Bluetooth adapter supports extended LE advertising (larger/longer advertisements, secondary advertising channels). Always `false` below API 26. */
-    val supportsExtended: Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        bluetoothAdapter(context)?.isLeExtendedAdvertisingSupported ?: false
-    } else {
-        false
-    }
+    val supportsExtended: Boolean
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            bluetoothAdapter(appContext)?.isLeExtendedAdvertisingSupported ?: false
+        } else {
+            false
+        }
 
     // endregion
 
